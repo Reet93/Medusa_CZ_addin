@@ -112,11 +112,13 @@ Granted by Jakub for maximum autonomy. Claude may, on its own initiative:
 | 2026-06-13 | Contributor terms = **DCO** (not CLA) | [High] | MIT already permits premium repo to consume public pkgs commercially. CLA only buys proprietary-relicensing, which contradicts the lead-gen model. Add CLA later only if acquisition needs it. |
 | 2026-06-13 | Demo = **dev-harness now on real Next.js starter**; public sales demo deferred, gated on Packeta, reached via deploy-pinning the same app | [High] | No second app (solo-dev maintenance). Use real starter so "polish later" = styling, not rebuild. |
 | 2026-06-13 | Build order: **Comgate → Packeta → GoPay → Fakturoid** (accepted, with flag) | [Medium] | Comgate proves arch; Packeta is the real market magnet + persuasive demo milestone. |
+| 2026-06-13 | **iÚčto → Stage 2** invoicing candidate (NOT V1) | [High] | Feasible (REST API + PHP SDK). Dogfood-driven; may outrank iDoklad in Stage 2 if author adopts it. V1 scope stays locked. |
 
 ---
 
 ## 7. Current state
 
-- **Phase:** Architecture discussion (pre-scaffold). No integration code yet.
-- **Next:** `superpowers:brainstorming` on `prompt.md`.
-- **Open question to resolve early:** pinned Medusa 2.x version (blocks anything version-specific).
+- **Phase:** Design approved & committed (`468e06e`). Spec at `docs/superpowers/specs/2026-06-13-medusa-cz-architecture-design.md`. No integration code yet.
+- **Next:** user reviews spec → `superpowers:writing-plans` scoped to **M0 (scaffold)**.
+- **Resolved:** Medusa pin (2.15.5), tooling (Turbo+pnpm), open-core seam (npm `shared`), DCO, demo strategy, build order.
+- **Standing gate:** §6 docs-verification against Medusa 2.15 runs BEFORE any scaffold code.
