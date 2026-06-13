@@ -140,6 +140,7 @@ premium repo to depend on.
 
 - **POHODA / Stormware** — desktop, Windows-bound mServer XML; paid bespoke work only, never a free self-serve plugin.
 - **Balíkobot, iDoklad** — Stage 2.
+- **iÚčto** — Stage 2 invoicing candidate (added 2026-06-13). Feasible via documented REST API + official PHP SDK (`iUcto/iucto-api-php-sdk`) → mirror with a thin TS client; reuses the Fakturoid invoicing-module + subscriber archetype. **Dogfood-driven**: if the author adopts iÚčto for their own books it becomes the best-maintained invoicing plugin (real-world tested in production) and may be prioritized ahead of iDoklad in Stage 2. Caveat: likely a smaller/niche vendor vs Fakturoid (dev favorite) and iDoklad (Seyfor) — treat as a well-maintained long-tail plugin, not a primary lead magnet. Does NOT enter V1; V1 scope stays locked.
 - **Premium modules** — separate private repo.
 
 ## 11. Open risks / watch-items
