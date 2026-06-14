@@ -5,7 +5,9 @@
   "description": "The Czech commerce stack for MedusaJS 2.0 — open-source CZ integration plugins.",
   "license": "MIT",
   "packageManager": "pnpm@9.15.0",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
