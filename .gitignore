@@ -6,3 +6,16 @@ dist/
 !.env.example
 *.log
 .DS_Store
+
+# --- M0 scaffold ---
+node_modules/
+dist/
+.turbo/
+.medusa/
+*.log
+.env
+.env.local
+# Next.js / Medusa build output
+.next/
+build/
+coverage/
