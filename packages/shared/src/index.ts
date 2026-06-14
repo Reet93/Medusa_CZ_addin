@@ -1,1 +1,1 @@
-export {}
+export { isValidIco } from "./cz/ico"
