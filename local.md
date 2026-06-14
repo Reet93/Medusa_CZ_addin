@@ -80,25 +80,38 @@ Claude does NOT play devil's advocate to be contrarian; only where it sees real 
 
 ## 5. Standing Rights (Claude acts WITHOUT asking)
 
-Granted by Jakub for maximum autonomy. Claude may, on its own initiative:
+Granted by Jakub for **maximum autonomy**. Default posture: **act, then report** — do NOT
+stop for per-step approval, and do NOT use AskUserQuestion when a reasonable default exists
+(pick the sensible default, note it, move on). Claude may, on its own initiative:
 
 - Read/search any file in the repo; explore the codebase freely.
-- Create, edit, move, and delete files **inside `c:\eshop`** as the work requires.
-- Run read-only and build/test/lint/format commands (pnpm, turbo, node, git status/diff/log).
-- Initialize git, create branches, make atomic commits with clear messages.
-- Scaffold packages, configs, tooling, fixtures, and tests.
-- Invoke any relevant skill, spawn subagents, and run workflows when scale warrants.
+- Create, edit, move, and delete files **inside `c:\eshop`** as the work requires
+  (including files Claude did not create, when the work clearly calls for it).
+- Run any local command needed for the work: build/test/lint/format, dependency installs,
+  scaffolding generators (e.g. `create-medusa-app`), DB migrations on local/dev databases,
+  scripts, and all read-only git.
+- Create branches and make atomic commits **without asking** — including committing on the
+  current branch. (No need to seek consent to work on `master`/a feature branch.)
+- Scaffold packages, configs, tooling, fixtures, tests; install dependencies as needed.
+- Invoke any relevant skill, spawn subagents, run workflows, and **proceed continuously
+  through an agreed plan** without pausing between tasks.
+- Make architecture/implementation decisions where a clear best option exists; log them and
+  keep moving. Surface genuine forks briefly in the report, not as a blocking question.
 - Fetch/verify against current Medusa & vendor docs on the web.
-- Install dependencies needed for the agreed plan.
 - Keep this `local.md` and a running decision log updated.
 
-## 5a. Always confirm FIRST (autonomy stops here)
+## 5a. Confirm FIRST — the short list (autonomy stops ONLY here)
 
-- `git push`, opening PRs, publishing to npm, or anything that leaves the machine.
-- Deleting/overwriting files Claude did **not** create, or that contradict their description.
-- Spending money, hitting paid APIs with real credentials, or touching production.
-- Writing **integration code** while we're still in an architecture/design session.
-- Any irreversible or outward-facing action.
+Only these, because they leave the machine, cost money, or can't be undone:
+
+- `git push`, opening/merging PRs, publishing to npm, or anything else that leaves the machine.
+- Spending money, or hitting paid/production APIs with real credentials.
+- Destructive ops on data that isn't recreatable (e.g. dropping a production DB).
+
+Everything else: **just do it and report.** Local file edits/deletes, local DB resets,
+branch/commit work, installs, and scaffolding are all pre-authorized. When unsure whether
+something is truly irreversible/outward-facing, lean toward acting on local-only work and
+only pause for the three bullets above.
 
 ---
 
@@ -113,12 +126,13 @@ Granted by Jakub for maximum autonomy. Claude may, on its own initiative:
 | 2026-06-13 | Demo = **dev-harness now on real Next.js starter**; public sales demo deferred, gated on Packeta, reached via deploy-pinning the same app | [High] | No second app (solo-dev maintenance). Use real starter so "polish later" = styling, not rebuild. |
 | 2026-06-13 | Build order: **Comgate → Packeta → GoPay → Fakturoid** (accepted, with flag) | [Medium] | Comgate proves arch; Packeta is the real market magnet + persuasive demo milestone. |
 | 2026-06-13 | **iÚčto → Stage 2** invoicing candidate (NOT V1) | [High] | Feasible (REST API + PHP SDK). Dogfood-driven; may outrank iDoklad in Stage 2 if author adopts it. V1 scope stays locked. |
+| 2026-06-14 | **Expand autonomy** — act-then-report by default; confirm only for push/PR/publish/money/production (§5/§5a rewritten) | [High] | Jakub: minimize approval prompts, grant much more rights. No per-step check-ins; no AskUserQuestion when a sane default exists. |
 
 ---
 
 ## 7. Current state
 
-- **Phase:** Design approved & committed (`468e06e`). Spec at `docs/superpowers/specs/2026-06-13-medusa-cz-architecture-design.md`. No integration code yet.
-- **Next:** user reviews spec → `superpowers:writing-plans` scoped to **M0 (scaffold)**.
-- **Resolved:** Medusa pin (2.15.5), tooling (Turbo+pnpm), open-core seam (npm `shared`), DCO, demo strategy, build order.
-- **Standing gate:** §6 docs-verification against Medusa 2.15 runs BEFORE any scaffold code.
+- **Phase:** ✅ Design phase COMPLETE & approved. Spec committed (`fd0e534`) at `docs/superpowers/specs/2026-06-13-medusa-cz-architecture-design.md`. No integration code yet.
+- **Next session:** `superpowers:writing-plans` scoped to **M0 (scaffold)** → then TDD execution.
+- **Resolved:** Medusa pin (2.15.5), tooling (Turbo+pnpm), open-core seam (npm `shared`), DCO, demo strategy, build order, iÚčto→Stage 2.
+- **Standing gate (carry forward):** §6 docs-verification against Medusa 2.15 runs BEFORE any scaffold code.
