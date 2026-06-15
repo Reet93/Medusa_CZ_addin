@@ -13,6 +13,9 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    env:
+      # Empty string when the secret is unset — used to keep the job inert pre-release.
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -22,7 +25,11 @@ jobs:
           cache: pnpm
           registry-url: "https://registry.npmjs.org"
       - run: pnpm install --frozen-lockfile
+      - name: Skip release (NPM_TOKEN not configured)
+        if: ${{ env.NPM_TOKEN == '' }}
+        run: echo "NPM_TOKEN is not set — release workflow is inert until the @medusa-cz scope token is configured. Skipping."
       - name: Create release PR or publish
+        if: ${{ env.NPM_TOKEN != '' }}
         uses: changesets/action@v1
         with:
           version: pnpm version-packages
@@ -31,6 +38,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-# Requires repo secret NPM_TOKEN with publish rights to the @medusa-cz scope.
-# changesets/action opens a "Version Packages" PR; merging it triggers publish.
-# Nothing publishes until a changeset exists AND its version PR is merged.
+# Inert until repo secret NPM_TOKEN (publish rights to the @medusa-cz scope) is set.
+# Once set: changesets/action opens a "Version Packages" PR when changesets exist;
+# merging that PR publishes. With no token the job is a green no-op (no failed runs).
