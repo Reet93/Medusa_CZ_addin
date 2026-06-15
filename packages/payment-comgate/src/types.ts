@@ -1,5 +1,3 @@
-import type { PaymentSessionStatus } from "@medusajs/framework/utils"
-
 export type CaptureMode = "automatic" | "manual"
 
 export interface ComgateOptions {
