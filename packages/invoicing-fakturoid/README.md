@@ -6,7 +6,5 @@ Fakturoid invoicing for MedusaJS 2.0 — listens to order events and creates inv
 ## Register (medusa-config.ts)
 
 ```ts
-modules: [
-  { resolve: "@medusa-cz/invoicing-fakturoid", options: {} },
-]
+modules: [{ resolve: "@medusa-cz/invoicing-fakturoid", options: {} }]
 ```
