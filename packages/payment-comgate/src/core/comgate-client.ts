@@ -1,5 +1,10 @@
 import { COMGATE_BASE_URL } from "../types"
-import type { ComgateCreateInput, ComgateCreateResult, ComgateOptions } from "../types"
+import type {
+  ComgateCreateInput,
+  ComgateCreateResult,
+  ComgateOptions,
+  ComgateStatusResult,
+} from "../types"
 
 export class ComgateError extends Error {
   readonly name = "ComgateError"
@@ -32,16 +37,17 @@ export class ComgateClient {
     this.test = !!opts.test
   }
 
-  private async post<T extends { code: number; message: string }>(
+  private async request<T extends { code: number; message: string }>(
+    method: string,
     path: string,
-    body: object
+    body?: object
   ): Promise<T> {
     let res: Response
     try {
       res = await this.fetchFn(`${this.base}${path}`, {
-        method: "POST",
+        method,
         headers: { Authorization: this.auth, "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, test: this.test }),
+        body: body ? JSON.stringify({ ...body, test: this.test }) : undefined,
       })
     } catch (e) {
       throw new ComgateError(1500, `Comgate network error: ${(e as Error).message}`, true)
@@ -76,6 +82,43 @@ export class ComgateClient {
   }
 
   async create(input: ComgateCreateInput): Promise<ComgateCreateResult> {
-    return this.post<ComgateCreateResult>("/payment.json", input)
+    return this.request<ComgateCreateResult>("POST", "/payment.json", input)
+  }
+
+  async status(transId: string): Promise<ComgateStatusResult> {
+    return this.request<ComgateStatusResult>(
+      "GET",
+      `/payment/transId/${encodeURIComponent(transId)}.json`
+    )
+  }
+
+  async refund(
+    transId: string,
+    amount: number,
+    curr: string
+  ): Promise<{ code: number; message: string }> {
+    return this.request<{ code: number; message: string }>("POST", "/refund.json", {
+      transId,
+      amount,
+      curr,
+    })
+  }
+
+  async capturePreauth(
+    transId: string,
+    amount?: number
+  ): Promise<{ code: number; message: string }> {
+    return this.request<{ code: number; message: string }>(
+      "PUT",
+      `/preauth/transId/${encodeURIComponent(transId)}.json`,
+      amount != null ? { amount } : {}
+    )
+  }
+
+  async cancelPreauth(transId: string): Promise<{ code: number; message: string }> {
+    return this.request<{ code: number; message: string }>(
+      "DELETE",
+      `/preauth/transId/${encodeURIComponent(transId)}.json`
+    )
   }
 }

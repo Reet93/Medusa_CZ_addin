@@ -87,3 +87,42 @@ describe("ComgateClient.create", () => {
     ).rejects.toMatchObject({ name: "ComgateError", code: 1309 })
   })
 })
+
+describe("ComgateClient.status/refund/preauth", () => {
+  beforeEach(() => vi.restoreAllMocks())
+
+  it("GETs status by transId", async () => {
+    mockFetchOnce(200, {
+      code: 0, message: "OK", transId: "T1", status: "PAID",
+      price: 1000, curr: "CZK", refId: "ps_1", test: true,
+    })
+    const res = await new ComgateClient(opts).status("T1")
+    expect(res.status).toBe("PAID")
+    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
+    expect(call[0]).toBe("https://payments.comgate.cz/v2.0/payment/transId/T1.json")
+    expect(call[1].method).toBe("GET")
+  })
+
+  it("refunds with amount in minor units", async () => {
+    mockFetchOnce(200, { code: 0, message: "OK" })
+    await new ComgateClient(opts).refund("T1", 500, "CZK")
+    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
+    expect(call[0]).toBe("https://payments.comgate.cz/v2.0/refund.json")
+    expect(JSON.parse(call[1].body)).toMatchObject({ transId: "T1", amount: 500, curr: "CZK" })
+  })
+
+  it("captures preauth with PUT", async () => {
+    mockFetchOnce(200, { code: 0, message: "OK" })
+    await new ComgateClient(opts).capturePreauth("T1", 1000)
+    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
+    expect(call[0]).toBe("https://payments.comgate.cz/v2.0/preauth/transId/T1.json")
+    expect(call[1].method).toBe("PUT")
+  })
+
+  it("cancels preauth with DELETE", async () => {
+    mockFetchOnce(200, { code: 0, message: "OK" })
+    await new ComgateClient(opts).cancelPreauth("T1")
+    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
+    expect(call[1].method).toBe("DELETE")
+  })
+})
