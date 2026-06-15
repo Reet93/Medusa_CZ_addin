@@ -46,14 +46,33 @@ export class ComgateClient {
     } catch (e) {
       throw new ComgateError(1500, `Comgate network error: ${(e as Error).message}`, true)
     }
+    const retryable = res.status >= 500
     if (!res.ok) {
-      throw new ComgateError(res.status, `Comgate HTTP ${res.status}`, res.status >= 500)
+      const body = await this.safeJson(res)
+      if (body && typeof (body as { code?: unknown }).code === "number") {
+        const err = body as { code: number; message?: string }
+        throw new ComgateError(err.code, err.message || `Comgate code ${err.code}`, retryable)
+      }
+      throw new ComgateError(res.status, `Comgate HTTP ${res.status}`, retryable)
     }
-    const json = (await res.json()) as T
-    if (json.code !== 0) {
-      throw new ComgateError(json.code, json.message || `Comgate code ${json.code}`)
+    let result: T
+    try {
+      result = (await res.json()) as T
+    } catch (e) {
+      throw new ComgateError(1500, `Comgate invalid JSON response: ${(e as Error).message}`, true)
     }
-    return json
+    if (result.code !== 0) {
+      throw new ComgateError(result.code, result.message || `Comgate code ${result.code}`)
+    }
+    return result
+  }
+
+  private async safeJson(res: Response): Promise<unknown | undefined> {
+    try {
+      return await res.json()
+    } catch {
+      return undefined
+    }
   }
 
   async create(input: ComgateCreateInput): Promise<ComgateCreateResult> {

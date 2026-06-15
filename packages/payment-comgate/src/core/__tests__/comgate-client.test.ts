@@ -47,6 +47,36 @@ describe("ComgateClient.create", () => {
     expect(call[1].headers.Authorization).toBe(
       "Basic " + Buffer.from("123456:s3cr3t").toString("base64")
     )
+    expect(JSON.parse(call[1].body).test).toBe(true)
+  })
+
+  it("surfaces the Comgate code/message on an HTTP error response", async () => {
+    mockFetchOnce(403, { code: 1400, message: "Unauthorized IP" })
+    await expect(
+      new ComgateClient(opts).create({ price: 1000, curr: "CZK", label: "x", refId: "ps_1", prepareOnly: true })
+    ).rejects.toMatchObject({ name: "ComgateError", code: 1400, message: "Unauthorized IP" })
+  })
+
+  it("falls back to HTTP status when the error body is not JSON", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false, status: 502,
+      json: async () => { throw new SyntaxError("Unexpected token") },
+      text: async () => "<html>Bad Gateway</html>",
+    }) as unknown as typeof fetch
+    await expect(
+      new ComgateClient(opts).create({ price: 1000, curr: "CZK", label: "x", refId: "ps_1", prepareOnly: true })
+    ).rejects.toMatchObject({ name: "ComgateError", code: 502, retryable: true })
+  })
+
+  it("throws ComgateError (not SyntaxError) on invalid JSON in a 2xx response", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => { throw new SyntaxError("Unexpected end of JSON input") },
+      text: async () => "",
+    }) as unknown as typeof fetch
+    await expect(
+      new ComgateClient(opts).create({ price: 1000, curr: "CZK", label: "x", refId: "ps_1", prepareOnly: true })
+    ).rejects.toMatchObject({ name: "ComgateError", code: 1500, retryable: true })
   })
 
   it("throws ComgateError when code != 0", async () => {
