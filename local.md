@@ -35,6 +35,7 @@
 ```
 
 Hard rules inside the flow:
+
 - **No integration code is written during a brainstorming/architecture session.** Design only.
 - **No skipping brainstorming** to jump to code, even if the ask sounds simple.
 - **No claiming "done"** without verification. Tests failing = say so with output.
@@ -47,9 +48,9 @@ Hard rules inside the flow:
 
 Claude tags assertions, recommendations, and answers with a confidence level:
 
-- **[High]**   — verified, or near-certain. Safe to act on.
+- **[High]** — verified, or near-certain. Safe to act on.
 - **[Medium]** — reasoned but unverified; could be wrong on specifics.
-- **[Low]**    — informed guess / depends on facts not yet checked.
+- **[Low]** — informed guess / depends on facts not yet checked.
 
 If a claim is [Medium] or [Low] and it matters, Claude says what it would check to upgrade it.
 
@@ -58,10 +59,11 @@ If a claim is [Medium] or [Low] and it matters, Claude says what it would check 
 ## 3. Devil's-advocate mandate
 
 On Jakub's ideas, decisions, and assumptions, Claude will:
+
 - State the strongest case **against** before agreeing.
 - Name the failure mode / what bites later, not just the upside.
 - Flag scope creep, premature optimization, and "this sounds clean but…".
-- Distinguish *taste* (your call) from *risk* (Claude pushes hard).
+- Distinguish _taste_ (your call) from _risk_ (Claude pushes hard).
 - Stop pushing once a decision is made **and logged** — then commit to it.
 
 Claude does NOT play devil's advocate to be contrarian; only where it sees real risk.
@@ -117,48 +119,57 @@ only pause for the three bullets above.
 
 ## 6. Decision log (append-only)
 
-| Date | Decision | Confidence | Notes |
-|------|----------|-----------|-------|
-| 2026-06-13 | Adopt this working agreement | [High] | Superpowers-first, devil's-advocate, autonomous. |
-| 2026-06-13 | Pin Medusa **2.15.5** as tested version; peer range `>=2.15.0 <2.16.0` per package | [High] | `latest` on npm. 2.16 in preview, 3.0 snapshots went quiet Feb-2026 → v2 is the live line. Re-verify on 2.16 stable. |
-| 2026-06-13 | Open-core seam = **published npm shared package** | [High] | Private premium repo consumes `@medusa-cz/*` from npm like any 3rd party. Keep `shared` thin = a stable public API. |
-| 2026-06-13 | Contributor terms = **DCO** (not CLA) | [High] | MIT already permits premium repo to consume public pkgs commercially. CLA only buys proprietary-relicensing, which contradicts the lead-gen model. Add CLA later only if acquisition needs it. |
-| 2026-06-13 | Demo = **dev-harness now on real Next.js starter**; public sales demo deferred, gated on Packeta, reached via deploy-pinning the same app | [High] | No second app (solo-dev maintenance). Use real starter so "polish later" = styling, not rebuild. |
-| 2026-06-13 | Build order: **Comgate → Packeta → GoPay → Fakturoid** (accepted, with flag) | [Medium] | Comgate proves arch; Packeta is the real market magnet + persuasive demo milestone. |
-| 2026-06-13 | **iÚčto → Stage 2** invoicing candidate (NOT V1) | [High] | Feasible (REST API + PHP SDK). Dogfood-driven; may outrank iDoklad in Stage 2 if author adopts it. V1 scope stays locked. |
-| 2026-06-14 | **Expand autonomy** — act-then-report by default; confirm only for push/PR/publish/money/production (§5/§5a rewritten) | [High] | Jakub: minimize approval prompts, grant much more rights. No per-step check-ins; no AskUserQuestion when a sane default exists. |
-| 2026-06-14 | §6 docs-verification gate COMPLETE (Medusa 2.15.5) | [High] | Results: `docs/superpowers/research/2026-06-14-medusa-2.15-verification.md`. |
-| 2026-06-14 | Decision #6 amended: "official Next.js starter" = `create-medusa-app` storefront, standalone `nextjs-starter-medusa` deprecated @ v2.14.0 | [High] | Jakub accepted. Intent unchanged; artifact only. |
-| 2026-06-14 | Packeta `canCalculate`/`calculatePrice` blocker (#9598) is FIXED in 2.15.x | [High] | No workaround needed; model on ShipStation guide. Downgrades spec §11 risk. |
-| 2026-06-14 | Plugin package.json/tsconfig corrected at first real build (4 fixes) | [High] | Build-confirmed: payment providers need public ctor; `medusa plugin:build` always builds admin → admin devDeps (`admin-sdk`/`admin-shared`/`icons`/`ui@4.1.15`) mandatory; need `src/admin/` dir; `tsconfig rootDir: "."` so emit matches exports map. All 4 plugins typecheck+build green. |
+| Date       | Decision                                                                                                                                  | Confidence | Notes                                                                                                                                                                                                                                                                                                                                                       |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-06-13 | Adopt this working agreement                                                                                                              | [High]     | Superpowers-first, devil's-advocate, autonomous.                                                                                                                                                                                                                                                                                                            |
+| 2026-06-13 | Pin Medusa **2.15.5** as tested version; peer range `>=2.15.0 <2.16.0` per package                                                        | [High]     | `latest` on npm. 2.16 in preview, 3.0 snapshots went quiet Feb-2026 → v2 is the live line. Re-verify on 2.16 stable.                                                                                                                                                                                                                                        |
+| 2026-06-13 | Open-core seam = **published npm shared package**                                                                                         | [High]     | Private premium repo consumes `@medusa-cz/*` from npm like any 3rd party. Keep `shared` thin = a stable public API.                                                                                                                                                                                                                                         |
+| 2026-06-13 | Contributor terms = **DCO** (not CLA)                                                                                                     | [High]     | MIT already permits premium repo to consume public pkgs commercially. CLA only buys proprietary-relicensing, which contradicts the lead-gen model. Add CLA later only if acquisition needs it.                                                                                                                                                              |
+| 2026-06-13 | Demo = **dev-harness now on real Next.js starter**; public sales demo deferred, gated on Packeta, reached via deploy-pinning the same app | [High]     | No second app (solo-dev maintenance). Use real starter so "polish later" = styling, not rebuild.                                                                                                                                                                                                                                                            |
+| 2026-06-13 | Build order: **Comgate → Packeta → GoPay → Fakturoid** (accepted, with flag)                                                              | [Medium]   | Comgate proves arch; Packeta is the real market magnet + persuasive demo milestone.                                                                                                                                                                                                                                                                         |
+| 2026-06-13 | **iÚčto → Stage 2** invoicing candidate (NOT V1)                                                                                          | [High]     | Feasible (REST API + PHP SDK). Dogfood-driven; may outrank iDoklad in Stage 2 if author adopts it. V1 scope stays locked.                                                                                                                                                                                                                                   |
+| 2026-06-14 | **Expand autonomy** — act-then-report by default; confirm only for push/PR/publish/money/production (§5/§5a rewritten)                    | [High]     | Jakub: minimize approval prompts, grant much more rights. No per-step check-ins; no AskUserQuestion when a sane default exists.                                                                                                                                                                                                                             |
+| 2026-06-14 | §6 docs-verification gate COMPLETE (Medusa 2.15.5)                                                                                        | [High]     | Results: `docs/superpowers/research/2026-06-14-medusa-2.15-verification.md`.                                                                                                                                                                                                                                                                                |
+| 2026-06-14 | Decision #6 amended: "official Next.js starter" = `create-medusa-app` storefront, standalone `nextjs-starter-medusa` deprecated @ v2.14.0 | [High]     | Jakub accepted. Intent unchanged; artifact only.                                                                                                                                                                                                                                                                                                            |
+| 2026-06-14 | Packeta `canCalculate`/`calculatePrice` blocker (#9598) is FIXED in 2.15.x                                                                | [High]     | No workaround needed; model on ShipStation guide. Downgrades spec §11 risk.                                                                                                                                                                                                                                                                                 |
+| 2026-06-14 | Plugin package.json/tsconfig corrected at first real build (4 fixes)                                                                      | [High]     | Build-confirmed: payment providers need public ctor; `medusa plugin:build` always builds admin → admin devDeps (`admin-sdk`/`admin-shared`/`icons`/`ui@4.1.15`) mandatory; need `src/admin/` dir; `tsconfig rootDir: "."` so emit matches exports map. All 4 plugins typecheck+build green.                                                                 |
+| 2026-06-15 | Demo **flattened** into our pnpm workspace (chose flatten over standalone)                                                                | [High]     | Dropped the generated nested npm+turbo wrapper. `@dtc/backend`→`apps/backend` (`@medusa-cz/demo`), `@dtc/storefront`→`apps/storefront` (`@medusa-cz/demo-storefront`), both `private`. Removed `npm` `packageManager` fields. Backend consumes `@medusa-cz/shared` via `workspace:*` — symlink + runtime resolution proven (`isValidIco("25063677")=true`). |
+| 2026-06-15 | `@medusa-cz/shared` made a proper **dual ESM/CJS package**                                                                                | [High]     | First CJS consumer (the CJS demo backend, `module: Node16`) hit TS1479. Fixed `exports` to per-condition `import`/`require` each with its own `types` (`.d.ts` / `.d.cts` that tsup already emits). The open-core seam now consumes cleanly from both ESM and CJS.                                                                                          |
+| 2026-06-15 | Storefront excluded from the **offline gated** `build`/`lint`                                                                             | [High]     | Its `next build`/`next lint` run an env-guard requiring `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` + a live backend. Root scripts use `--filter=!@medusa-cz/demo-storefront`; added `build:storefront` for its deploy context. Vendored apps also added to `.prettierignore`.                                                                                     |
+| 2026-06-15 | Changesets config corrected                                                                                                               | [High]     | `baseBranch` `main`→`master` (actual default branch); removed root `medusa-cz` from `ignore` (workspace root isn't a tracked package). `changeset status` now valid.                                                                                                                                                                                        |
+| 2026-06-15 | CI + release workflows added; **M0 scaffold COMPLETE**                                                                                    | [High]     | `.github/workflows/ci.yml` (DCO + format/build/typecheck/lint/test on `master`/PR) and `release.yml` (changesets publish on `master`). Postgres service deferred to M1. Full pipeline green; `--frozen-lockfile` clean; scope guard confirms zero vendor logic in skeletons.                                                                                |
 
 ---
 
-## 7. Current state — HANDOVER (paused 2026-06-14 ~21:48, mid-M0)
+## 7. Current state — M0 SCAFFOLD COMPLETE (2026-06-15)
 
-**Branch:** `m0-scaffold` (NOT merged to master). **Plan:** `docs/superpowers/plans/2026-06-14-m0-scaffold.md` (18 tasks). **Execution mode:** subagent-driven (clustered).
+**Branch:** `m0-scaffold` (NOT yet merged to `master`, NOT pushed). **Plan:** `docs/superpowers/plans/2026-06-14-m0-scaffold.md` (18 tasks — all done). **Default branch:** `master` (note: not `main`).
 
-### ✅ Done & committed on `m0-scaffold` (in order)
-- `3ed8d50` planning artifacts (plan + §6 verification doc)
-- `afb835f` autonomy expansion (this file §5/§5a)
-- Tasks 1–6 (foundation): `5cc9ba4`(pnpm+turbo) `a591d55`(tsconfig) `1e717c3`(turbo.json) `ed9e68b`(eslint+prettier) `fa94468`(changesets) `c3e3378`(license/readme/contributing)
-- Tasks 7–9 (`@medusa-cz/shared`): `384c30f`(skeleton) `07e3303`(feat: isValidIco — 6 TDD tests pass) `3e0e9d5`(build/exports verified)
-- Tasks 10–13 (4 plugin skeletons, all build green): `dd0cefb`(payment-comgate) `5779c04`(fulfillment-packeta) `44817e4`(payment-gopay) `80ce04c`(invoicing-fakturoid)
+### ✅ M0 deliverables (all 18 tasks)
 
-### ⏳ NEXT (resume here) — Tasks 14–15: demo app
-**Blocker found (needs the structural decision below first):** `create-medusa-app@2.15.5 --with-nextjs-starter --skip-db` generated the **dtc-starter as its OWN self-contained npm+turbo monorepo** at `apps/demo/` (root pkg name `demo`, `workspaces: ["apps/**"]`, own `turbo.json` + `package-lock.json` + `node_modules`), containing `apps/demo/apps/backend` (`@dtc/backend` = Medusa server) and `apps/demo/apps/storefront` (`@dtc/storefront` = Next.js). This is raw, **untracked** (`apps/` shows `??` in git), NOT integrated, NOT committed. The plan's Task 14/15 assumed a bare backend + sibling storefront — needs updating.
+- **Foundation (1–6):** pnpm + Turborepo workspace (`packages/*`, `apps/*`), shared tsconfig, ESLint 9 flat + Prettier, Changesets, MIT/README/CONTRIBUTING (DCO).
+- **`@medusa-cz/shared` (7–9):** open-core seam. `isValidIco` built TDD (6/6 vitest pass). Proper **dual ESM/CJS** package (per-condition `exports` types), publishable `dist` verified.
+- **4 plugin skeletons (10–13):** `payment-comgate`, `fulfillment-packeta`, `payment-gopay`, `invoicing-fakturoid` — all typecheck + `medusa plugin:build` green; logic-free (`notImplemented` throws only; scope guard confirms no vendor URLs/HTTP).
+- **Demo (14–15):** flattened into the workspace — `apps/backend` (`@medusa-cz/demo`, Medusa server) + `apps/storefront` (`@medusa-cz/demo-storefront`, Next.js). Backend consumes `@medusa-cz/shared` via `workspace:*`; symlink + runtime resolution proven; smoke subscriber at `apps/backend/src/subscribers/shared-smoke.ts`.
+- **CI (16–17):** `.github/workflows/ci.yml` (DCO + format/build/typecheck/lint/test) and `release.yml` (changesets publish), both on `master`.
+- **Sign-off (18):** full pipeline green (build · typecheck · lint · test · format:check); `pnpm install --frozen-lockfile` clean; all commits DCO-signed.
 
-**Recommended approach (my default for next session, [Medium]):** flatten into OUR pnpm workspace —
-1. Move `apps/demo/apps/backend` → `apps/backend`, `apps/demo/apps/storefront` → `apps/storefront`; delete the generated wrapper (`apps/demo/{package.json,turbo.json,package-lock.json,node_modules,apps}`) to avoid nested-turbo/npm conflicts.
-2. Rename `@dtc/backend` → `@medusa-cz/demo` and `@dtc/storefront` → `@medusa-cz/demo-storefront`, both `"private": true` (already in `.changeset` ignore list).
-3. `pnpm install` (our root workspace already globs `apps/*`), then Task 15: add `@medusa-cz/shared: workspace:*` to the backend + the smoke subscriber, prove resolution.
-   - **No Postgres needed for the proof** — use build/typecheck + `node -e "require.resolve('@medusa-cz/shared')"` from the backend dir; defer live boot. (Check if Postgres is available; if yes, do the full boot.)
-   - Alt option B (if flattening fights the starter): keep `apps/demo` standalone/excluded from pnpm workspace and consume `@medusa-cz/*` via published npm later — but this loses spec §7's `workspace:*` live-dev symlink. Prefer flatten.
-4. Then Tasks 16–17 (CI `ci.yml` + `release.yml`), Task 18 (clean `pnpm install --frozen-lockfile` + full `build/typecheck/lint/test/format:check` green; update this §7 to "M0 complete"; note Task 5's `changeset status` error self-resolves once the demo pkgs named in `.changeset` ignore exist).
+### ⏳ NEXT — confirm-first gate, then M1
 
-### Working-tree noise (safe to ignore)
-- `apps/` untracked (the raw demo scaffold above).
-- `.vexp/index.db`, `.vexp/manifest.json` modified by the memory tooling — never stage these.
+These need Jakub's go (per §5a): **push `m0-scaffold`** and **open the PR to `master`**. Nothing has left the machine yet.
+
+- **M1 — Comgate payment provider** (TDD against the verified `AbstractPaymentProvider` 2.15 signatures in the §6 doc). First real vendor logic; needs the Comgate sandbox creds + (for integration tests) a Postgres service added back to `ci.yml`.
+- Before first npm publish: set repo secret `NPM_TOKEN` (publish rights to the `@medusa-cz` scope) and add a changeset.
+
+### Known soft spots / deferred (not blockers)
+
+- **Storefront** is excluded from the offline gated `build`/`lint` (needs live backend + publishable key); build it via `pnpm build:storefront` in its deploy context. Live `medusa develop` boot deferred (no Postgres this session).
+- React 18 (backend/plugins) vs React 19 (storefront) coexist in the workspace — pnpm isolates per-package; peer warnings at install are benign (all builds green).
+
+### Working-tree noise (never stage)
+
+- `.vexp/index.db`, `.vexp/manifest.json` (+ `-shm`/`-wal`) — memory tooling; `.vexp` is in `.prettierignore`.
 
 ### Standing gate (carry forward)
+
 Re-run §6-style docs-verification against any Medusa minor/major bump (2.16 stable, 3.0) before adopting.
