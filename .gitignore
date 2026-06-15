@@ -11,6 +11,9 @@ coverage/
 *.log
 .DS_Store
 
+# Local memory-tooling state (claude-mem / vexp) — never commit
+.vexp/
+
 # Env files — never commit real env; templates/examples are tracked
 .env
 .env.*
