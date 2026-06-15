@@ -9,9 +9,10 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "turbo run build",
+    "build": "turbo run build --filter=!@medusa-cz/demo-storefront",
+    "build:storefront": "turbo run build --filter=@medusa-cz/demo-storefront",
     "test": "turbo run test",
-    "lint": "turbo run lint",
+    "lint": "turbo run lint --filter=!@medusa-cz/demo-storefront",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yaml,yml}\"",

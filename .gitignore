@@ -1,21 +1,19 @@
+# Dependencies & build output
 node_modules/
 dist/
+build/
+coverage/
 .turbo/
-.env
-.env.*
-!.env.example
+.medusa/
+# Next.js build output
+.next/
+# Logs & OS cruft
 *.log
 .DS_Store
 
-# --- M0 scaffold ---
-node_modules/
-dist/
-.turbo/
-.medusa/
-*.log
+# Env files — never commit real env; templates/examples are tracked
 .env
-.env.local
-# Next.js / Medusa build output
-.next/
-build/
-coverage/
+.env.*
+!.env.example
+!.env.template
+!*.env.template
