@@ -1,8 +1,19 @@
+# Dependencies & build output
 node_modules/
 dist/
+build/
+coverage/
 .turbo/
+.medusa/
+# Next.js build output
+.next/
+# Logs & OS cruft
+*.log
+.DS_Store
+
+# Env files — never commit real env; templates/examples are tracked
 .env
 .env.*
 !.env.example
-*.log
-.DS_Store
+!.env.template
+!*.env.template

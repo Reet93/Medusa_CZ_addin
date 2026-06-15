@@ -19,15 +19,15 @@ The repo is the sales page: "the Czech commerce stack for Medusa."
 
 ## 2. Locked decisions
 
-| # | Decision | Confidence | Rationale |
-|---|----------|-----------|-----------|
-| 1 | **Pin Medusa `2.15.5`** as tested version; per-package peer range `>=2.15.0 <2.16.0` | High | `2.15.5` is `latest` on npm (2026-06-13). 2.16 in preview; 3.0 snapshots went quiet Feb-2026 → v2 is the live line. Re-verify deliberately when 2.16 ships stable. |
-| 2 | **Monorepo + per-package independent npm publish** under `@medusa-cz/*` | High | One tooling/CI surface; atomic cross-package changes; consumers still install one package at a time. Separate-repo-per-plugin would multiply solo-dev maintenance. |
-| 3 | **Turborepo + pnpm workspaces** as the task runner | High | Task caching + graph from day one; cheap to set up; pays off in CI and as packages grow. Plain pnpm would likely be bolted onto Turbo later anyway; Nx is overkill. |
-| 4 | **Open-core seam = published npm `@medusa-cz/shared`** | High | Private premium repo consumes public packages from npm like any third party. Keep `shared` thin → a small, stable public API. |
-| 5 | **Contributor terms = DCO** (sign-off line), not a CLA | High | MIT already lets the premium repo consume public packages commercially. A CLA only buys proprietary-relicensing, which contradicts the lead-gen model and adds PR friction. Add a CLA later only if an acquisition needs it. |
-| 6 | **Demo = dev-harness now on the official Next.js starter**; public sales demo deferred, gated on Packeta, reached by **deploy-pinning the same app** | High | No second app to maintain solo. Using the real starter means "polish later" = styling, not a rebuild. |
-| 7 | **Build order: Comgate → Packeta → GoPay → Fakturoid** | Medium | Comgate proves the architecture (clean REST). Packeta is the real market magnet + the milestone that makes the demo persuasive. |
+| #   | Decision                                                                                                                                             | Confidence | Rationale                                                                                                                                                                                                                    |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Pin Medusa `2.15.5`** as tested version; per-package peer range `>=2.15.0 <2.16.0`                                                                 | High       | `2.15.5` is `latest` on npm (2026-06-13). 2.16 in preview; 3.0 snapshots went quiet Feb-2026 → v2 is the live line. Re-verify deliberately when 2.16 ships stable.                                                           |
+| 2   | **Monorepo + per-package independent npm publish** under `@medusa-cz/*`                                                                              | High       | One tooling/CI surface; atomic cross-package changes; consumers still install one package at a time. Separate-repo-per-plugin would multiply solo-dev maintenance.                                                           |
+| 3   | **Turborepo + pnpm workspaces** as the task runner                                                                                                   | High       | Task caching + graph from day one; cheap to set up; pays off in CI and as packages grow. Plain pnpm would likely be bolted onto Turbo later anyway; Nx is overkill.                                                          |
+| 4   | **Open-core seam = published npm `@medusa-cz/shared`**                                                                                               | High       | Private premium repo consumes public packages from npm like any third party. Keep `shared` thin → a small, stable public API.                                                                                                |
+| 5   | **Contributor terms = DCO** (sign-off line), not a CLA                                                                                               | High       | MIT already lets the premium repo consume public packages commercially. A CLA only buys proprietary-relicensing, which contradicts the lead-gen model and adds PR friction. Add a CLA later only if an acquisition needs it. |
+| 6   | **Demo = dev-harness now on the official Next.js starter**; public sales demo deferred, gated on Packeta, reached by **deploy-pinning the same app** | High       | No second app to maintain solo. Using the real starter means "polish later" = styling, not a rebuild.                                                                                                                        |
+| 7   | **Build order: Comgate → Packeta → GoPay → Fakturoid**                                                                                               | Medium     | Comgate proves the architecture (clean REST). Packeta is the real market magnet + the milestone that makes the demo persuasive.                                                                                              |
 
 ## 3. Repo layout
 
@@ -72,6 +72,7 @@ Stage-2 packages (`balikobot`, `idoklad`) slot into `packages/` later. Premium m
 > Base-class method signatures are docs-gate (§6) — verified against 2.15 before scaffolding.
 
 ### 5.1 Payment provider (Comgate, GoPay)
+
 ```
 src/services/<x>-provider.ts   # extends AbstractPaymentProvider
 src/core/<x>-client.ts         # thin TS REST client (mirrors the vendor PHP/official SDK)
@@ -82,6 +83,7 @@ README.md                      # copy-paste install + .env example
 ```
 
 ### 5.2 Fulfillment provider (Packeta) — the hard one
+
 ```
 src/services/packeta-provider.ts   # extends AbstractFulfillmentProviderService
 src/core/packeta-client.ts
@@ -90,10 +92,12 @@ src/index.ts
 src/__tests__/
 README.md
 ```
+
 The `canCalculate`/`calculatePrice` v2 fulfillment bug (medusajs/medusa Discussion #9495 / Issue
 #9598) is verified against 2.15 specifically before the workaround is designed.
 
 ### 5.3 Module + subscribers (Fakturoid)
+
 ```
 src/modules/fakturoid/         # module definition + service
 src/subscribers/order-*.ts     # order events → create invoice

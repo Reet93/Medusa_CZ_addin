@@ -1,0 +1,15 @@
+node_modules
+dist
+.medusa
+.next
+.turbo
+coverage
+pnpm-lock.yaml
+
+# Local tooling state — never format or stage
+.vexp
+
+# Vendored demo dev-harness (Medusa starter) — not part of the open-core format gate.
+# These apps follow upstream starter formatting; our open-core lives in packages/*.
+apps/backend
+apps/storefront

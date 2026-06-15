@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+
+concurrency: release-${{ github.ref }}
+
+jobs:
+  release:
+    name: Version & publish (@medusa-cz/*)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: "https://registry.npmjs.org"
+      - run: pnpm install --frozen-lockfile
+      - name: Create release PR or publish
+        uses: changesets/action@v1
+        with:
+          version: pnpm version-packages
+          publish: pnpm release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+# Requires repo secret NPM_TOKEN with publish rights to the @medusa-cz scope.
+# changesets/action opens a "Version Packages" PR; merging it triggers publish.
+# Nothing publishes until a changeset exists AND its version PR is merged.
