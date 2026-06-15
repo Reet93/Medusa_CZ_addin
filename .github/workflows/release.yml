@@ -13,9 +13,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    env:
-      # Empty string when the secret is unset — used to keep the job inert pre-release.
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -24,12 +21,25 @@ jobs:
           node-version: 20
           cache: pnpm
           registry-url: "https://registry.npmjs.org"
-      - run: pnpm install --frozen-lockfile
+      # Scope the secret to this tiny check step only — export just a boolean so
+      # NPM_TOKEN is never in the environment when `pnpm install` runs lifecycle
+      # scripts (supply-chain hardening).
+      - name: Check NPM_TOKEN
+        id: token
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Skip release (NPM_TOKEN not configured)
-        if: ${{ env.NPM_TOKEN == '' }}
-        run: echo "NPM_TOKEN is not set — release workflow is inert until the @medusa-cz scope token is configured. Skipping."
+        if: steps.token.outputs.present == 'false'
+        run: echo "NPM_TOKEN not set — release workflow is inert until the @medusa-cz scope token is configured. Skipping."
       - name: Create release PR or publish
-        if: ${{ env.NPM_TOKEN != '' }}
+        if: steps.token.outputs.present == 'true'
         uses: changesets/action@v1
         with:
           version: pnpm version-packages
@@ -41,3 +51,5 @@ jobs:
 # Inert until repo secret NPM_TOKEN (publish rights to the @medusa-cz scope) is set.
 # Once set: changesets/action opens a "Version Packages" PR when changesets exist;
 # merging that PR publishes. With no token the job is a green no-op (no failed runs).
+# The secret is confined to the check step and the publish step — never present
+# during dependency install.
