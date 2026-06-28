@@ -14,6 +14,9 @@ coverage/
 # Local memory-tooling state (claude-mem / vexp) — never commit
 .vexp/
 
+# Playwright MCP debug artifacts (local only)
+.playwright-mcp/
+
 # Env files — never commit real env; templates/examples are tracked
 .env
 .env.*
