@@ -33,7 +33,7 @@ describe("PacketaClient.createPacket", () => {
     expect(res.id).toBe("9007199254740993")
     expect(res.barcode).toBe("Z9007199254740993")
 
-    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
+    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
     expect(call[0]).toBe("https://www.zasilkovna.cz/api/rest")
     expect(call[1].method).toBe("POST")
     const body = call[1].body as string
