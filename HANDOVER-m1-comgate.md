@@ -39,11 +39,11 @@ Vitest 2.x. Everything is committed and pushed — `git status` should be clean.
 This work follows a written, task-by-task plan. **Do not re-derive Comgate or
 Medusa facts from memory — the verification doc wins over memory.**
 
-| Doc | Purpose |
-|-----|---------|
-| `docs/superpowers/plans/2026-06-15-m1-comgate.md` | **The plan.** 12 tasks, each with failing-test-first steps. This is the spine of the work. |
-| `docs/superpowers/specs/2026-06-15-m1-comgate-design.md` | Design spec (provider shape, capture modes). |
-| `docs/superpowers/research/2026-06-15-comgate-api-verification.md` | Verified Comgate API + Medusa payment internals (the §8 docs-gate). Source of truth. |
+| Doc                                                                | Purpose                                                                                    |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `docs/superpowers/plans/2026-06-15-m1-comgate.md`                  | **The plan.** 12 tasks, each with failing-test-first steps. This is the spine of the work. |
+| `docs/superpowers/specs/2026-06-15-m1-comgate-design.md`           | Design spec (provider shape, capture modes).                                               |
+| `docs/superpowers/research/2026-06-15-comgate-api-verification.md` | Verified Comgate API + Medusa payment internals (the §8 docs-gate). Source of truth.       |
 
 **Methodology:** This is TDD with the `superpowers:subagent-driven-development`
 (or `superpowers:executing-plans`) skill — RED → GREEN → REFACTOR, one task per
@@ -51,15 +51,16 @@ commit. Every commit is signed: **`git commit -s`** (DCO required).
 
 ## 4. What is DONE (Tasks 1–4, all committed & pushed)
 
-| Task | What | Commit |
-|------|------|--------|
-| 1 | Vitest harness + `src/types.ts` + service relocated to `src/services/comgate-provider.ts` | `39224fb` |
-| 2 | REST client `create()` + amount helpers (`toMinorUnits`/`fromMinorUnits`) + `ComgateError` | `60ba08b` |
-| 2.x | Surface Comgate application `code` on HTTP errors + guard JSON parse | `25264e1` |
-| 3 | Client `status` / `refund` / `capturePreauth` / `cancelPreauth` | `9916521` |
-| 4 | Provider `initiatePayment` + `getPaymentStatus` + `retrievePayment` + status mapping | `3894663` |
+| Task | What                                                                                       | Commit    |
+| ---- | ------------------------------------------------------------------------------------------ | --------- |
+| 1    | Vitest harness + `src/types.ts` + service relocated to `src/services/comgate-provider.ts`  | `39224fb` |
+| 2    | REST client `create()` + amount helpers (`toMinorUnits`/`fromMinorUnits`) + `ComgateError` | `60ba08b` |
+| 2.x  | Surface Comgate application `code` on HTTP errors + guard JSON parse                       | `25264e1` |
+| 3    | Client `status` / `refund` / `capturePreauth` / `cancelPreauth`                            | `9916521` |
+| 4    | Provider `initiatePayment` + `getPaymentStatus` + `retrievePayment` + status mapping       | `3894663` |
 
 **Current code state:**
+
 - `src/core/comgate-client.ts` — full client: `create`, `status`, `refund`,
   `capturePreauth`, `cancelPreauth`, `ComgateError`, minor-unit helpers. Done.
 - `src/services/comgate-provider.ts` — `initiatePayment`, `getPaymentStatus`,
@@ -84,6 +85,7 @@ Open `docs/superpowers/plans/2026-06-15-m1-comgate.md` at **`## Task 5`** (line
 - **Task 12** — README, manual acceptance, whole-repo green
 
 ### How to start the next session (suggested first message to Claude)
+
 > "Continue the M1 Comgate work on branch `m1-comgate`. Read
 > `docs/superpowers/plans/2026-06-15-m1-comgate.md` and resume at Task 5 using
 > TDD (RED→GREEN→REFACTOR), one signed commit per task (`git commit -s`). Run
@@ -122,4 +124,5 @@ git log --oneline master..m1-comgate                  # what's on this branch
   `notImplemented(...)`; remove it from that method only.
 
 ---
+
 _Generated 2026-06-26. Branch `m1-comgate` @ `3894663`, 14 tests green, working tree clean, all pushed._
