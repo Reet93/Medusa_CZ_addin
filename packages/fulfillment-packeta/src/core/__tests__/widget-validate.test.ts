@@ -16,7 +16,7 @@ describe("validatePoint", () => {
     mockJsonOnce(200, { isValid: true, errors: [] })
     const res = await validatePoint({ apiKey: "KEY", point: { id: "79" } })
     expect(res).toEqual({ isValid: true, errors: [] })
-    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
+    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
     expect(call[0]).toBe("https://widget.packeta.com/v6/pps/api/widget/v1/validate")
     expect(JSON.parse(call[1].body)).toMatchObject({ apiKey: "KEY", point: { id: "79" } })
   })
