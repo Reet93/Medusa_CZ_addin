@@ -107,3 +107,49 @@ describe("PacketaClient cancel/status/tracking", () => {
     expect(res[0]).toMatchObject({ statusCode: "1", statusText: "Created" })
   })
 })
+
+describe("PacketaClient label/shipment/returns", () => {
+  beforeEach(() => vi.restoreAllMocks())
+
+  it("packetLabelPdf returns the base64 string from <result>", async () => {
+    mockFetchOnce(200, `<response status="ok"><result>JVBERi0xLjQK</result></response>`)
+    const b64 = await new PacketaClient(opts).packetLabelPdf("1", "A6 on A4")
+    expect(b64).toBe("JVBERi0xLjQK")
+    const body = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1]
+      .body as string
+    expect(body).toContain("<packetLabelPdf>")
+    expect(body).toContain("<format>A6 on A4</format>")
+  })
+
+  it("createShipment sends all packetIds and returns the shipment id", async () => {
+    mockFetchOnce(
+      200,
+      `<response status="ok"><result><id>S123</id><barcode>BS123</barcode></result></response>`
+    )
+    const res = await new PacketaClient(opts).createShipment(["1", "2"])
+    expect(res).toEqual({ id: "S123", barcode: "BS123" })
+    const body = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1]
+      .body as string
+    expect(body).toContain("<createShipment>")
+    expect(body).toContain("<id>1</id>")
+    expect(body).toContain("<id>2</id>")
+  })
+
+  it("createPacketClaim returns id+barcode as strings", async () => {
+    mockFetchOnce(
+      200,
+      `<response status="ok"><result><id>77</id><barcode>Z77</barcode></result></response>`
+    )
+    const res = await new PacketaClient(opts).createPacketClaim({ number: "ret-1", value: 10 })
+    expect(res).toEqual({ id: "77", barcode: "Z77" })
+  })
+
+  it("senderGetReturnRouting returns an array of strings", async () => {
+    mockFetchOnce(
+      200,
+      `<response status="ok"><result><string>r1</string><string>r2</string></result></response>`
+    )
+    const res = await new PacketaClient(opts).senderGetReturnRouting("my-sender")
+    expect(res).toEqual(["r1", "r2"])
+  })
+})
