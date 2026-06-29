@@ -58,6 +58,40 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     })
     return { calculated_amount: amount, is_calculated_price_tax_inclusive: false }
   }
+
+  async validateFulfillmentData(
+    _optionData: Record<string, unknown>,
+    data: Record<string, unknown>,
+    _context: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    const id = data.pickup_point_id as string | undefined
+    if (!id) {
+      throw new Error("Packeta: no pickup point selected (missing `pickup_point_id`)")
+    }
+    const type = (data.pickup_point_type as string) === "external" ? "external" : "internal"
+    const normalized: PacketaPointData = {
+      pickup_point_id: String(id),
+      pickup_point_name: data.pickup_point_name as string | undefined,
+      pickup_point_type: type,
+      carrier_id: data.carrier_id as string | undefined,
+      carrier_pickup_point_id: data.carrier_pickup_point_id as string | undefined,
+    }
+
+    if (this.options_.validatePointServerSide !== false) {
+      const point =
+        type === "external"
+          ? {
+              carrierId: normalized.carrier_id,
+              carrierPickupPointId: normalized.carrier_pickup_point_id,
+            }
+          : { id: normalized.pickup_point_id }
+      const { isValid, errors } = await validatePoint({ apiKey: this.options_.apiKey, point })
+      if (!isValid) {
+        throw new Error(`Packeta: invalid pickup point — ${errors.join(", ") || "validation failed"}`)
+      }
+    }
+    return normalized
+  }
 }
 
 export default PacketaProviderService

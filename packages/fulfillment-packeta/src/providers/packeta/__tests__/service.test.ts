@@ -13,7 +13,7 @@ vi.mock("../../../core/packeta-client", () => ({
     createPacketClaim,
   })),
 }))
-const validatePoint = vi.fn()
+const validatePoint = vi.hoisted(() => vi.fn())
 vi.mock("../../../core/widget-validate", () => ({ validatePoint }))
 
 import PacketaProviderService from "../service"
@@ -74,5 +74,61 @@ describe("canCalculate / calculatePrice", () => {
       } as never
     )
     expect(res).toMatchObject({ calculated_amount: 109 })
+  })
+})
+
+describe("validateFulfillmentData", () => {
+  it("normalizes an internal point and persists it (server validation off)", async () => {
+    const provider = makeProvider({ ...options, validatePointServerSide: false })
+    const out = await provider.validateFulfillmentData(
+      {},
+      { pickup_point_id: "79", pickup_point_name: "Praha 1", pickup_point_type: "internal" },
+      {}
+    )
+    expect(out).toMatchObject({ pickup_point_id: "79", pickup_point_type: "internal" })
+    expect(validatePoint).not.toHaveBeenCalled()
+  })
+
+  it("maps an external point's carrier ids", async () => {
+    const provider = makeProvider({ ...options, validatePointServerSide: false })
+    const out = await provider.validateFulfillmentData(
+      {},
+      {
+        pickup_point_id: "3060",
+        pickup_point_type: "external",
+        carrier_id: "3060",
+        carrier_pickup_point_id: "ABC",
+      },
+      {}
+    )
+    expect(out).toMatchObject({
+      pickup_point_type: "external",
+      carrier_id: "3060",
+      carrier_pickup_point_id: "ABC",
+    })
+  })
+
+  it("throws when no pickup point is present", async () => {
+    await expect(
+      makeProvider({ ...options, validatePointServerSide: false }).validateFulfillmentData(
+        {},
+        {},
+        {}
+      )
+    ).rejects.toThrow(/pickup point/i)
+  })
+
+  it("calls the validate endpoint when enabled and rejects an invalid point", async () => {
+    validatePoint.mockResolvedValue({ isValid: false, errors: ["NotFound"] })
+    await expect(
+      makeProvider({ ...options, validatePointServerSide: true }).validateFulfillmentData(
+        {},
+        { pickup_point_id: "1" },
+        {}
+      )
+    ).rejects.toThrow(/NotFound/)
+    expect(validatePoint).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "KEY", point: { id: "1" } })
+    )
   })
 })
