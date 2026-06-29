@@ -108,14 +108,32 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
     // automatic: Comgate already captured on PAID — nothing to do.
     return { data: { ...input.data, status: "PAID" } }
   }
-  async refundPayment(): Promise<never> {
-    return this.notImplemented("refundPayment")
+  async refundPayment(input: {
+    amount: unknown
+    data?: Record<string, unknown>
+  }): Promise<{ data?: Record<string, unknown> }> {
+    const transId = input.data?.transId as string
+    const curr = (input.data?.curr as string) ?? "CZK"
+    await this.client_.refund(transId, toMinorUnits(this.num(input.amount)), curr)
+    return { data: input.data }
   }
-  async cancelPayment(): Promise<never> {
-    return this.notImplemented("cancelPayment")
+
+  private async cancelOrDelete(input: {
+    data?: Record<string, unknown>
+  }): Promise<{ data?: Record<string, unknown> }> {
+    const transId = input.data?.transId as string
+    if (this.capture_ === "manual" && input.data?.status === "AUTHORIZED") {
+      await this.client_.cancelPreauth(transId)
+    }
+    // automatic / non-authorized: Comgate has no merchant-side cancel of a
+    // redirect tx — best-effort no-op.
+    return { data: input.data }
   }
-  async deletePayment(): Promise<never> {
-    return this.notImplemented("deletePayment")
+  async cancelPayment(input: { data?: Record<string, unknown> }) {
+    return this.cancelOrDelete(input)
+  }
+  async deletePayment(input: { data?: Record<string, unknown> }) {
+    return this.cancelOrDelete(input)
   }
   async updatePayment(): Promise<never> {
     return this.notImplemented("updatePayment")

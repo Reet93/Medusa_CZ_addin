@@ -94,3 +94,27 @@ describe("capturePayment", () => {
     expect(capturePreauth).toHaveBeenCalledWith("T1", undefined)
   })
 })
+
+describe("refundPayment", () => {
+  it("refunds the given amount in minor units, with currency from session data", async () => {
+    refund.mockResolvedValue({ code: 0, message: "OK" })
+    await makeProvider().refundPayment({ amount: 5, data: { transId: "T1", curr: "CZK" } } as never)
+    expect(refund).toHaveBeenCalledWith("T1", 500, "CZK")
+  })
+})
+
+describe("cancelPayment / deletePayment", () => {
+  it("manual mode cancels the preauth", async () => {
+    cancelPreauth.mockResolvedValue({ code: 0, message: "OK" })
+    await makeProvider({ ...options, capture: "manual" }).cancelPayment({
+      data: { transId: "T1", status: "AUTHORIZED" },
+    } as never)
+    expect(cancelPreauth).toHaveBeenCalledWith("T1")
+  })
+  it("automatic mode is a best-effort no-op", async () => {
+    await makeProvider({ ...options, capture: "automatic" }).cancelPayment({
+      data: { transId: "T1" },
+    } as never)
+    expect(cancelPreauth).not.toHaveBeenCalled()
+  })
+})
