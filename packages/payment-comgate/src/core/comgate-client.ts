@@ -1,10 +1,10 @@
-import { COMGATE_BASE_URL } from "../types"
+import { COMGATE_BASE_URL } from "../types.js"
 import type {
   ComgateCreateInput,
   ComgateCreateResult,
   ComgateOptions,
   ComgateStatusResult,
-} from "../types"
+} from "../types.js"
 
 export class ComgateError extends Error {
   readonly name = "ComgateError"
