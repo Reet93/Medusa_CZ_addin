@@ -1,4 +1,4 @@
-import type { PriceTable } from "./types.js"
+import type { PriceTable } from "../types.js"
 
 export interface PriceContext {
   /** order is cash-on-delivery */
@@ -21,7 +21,7 @@ export function calculateShippingPrice(
     return 0
   }
   const sorted = [...cp.bands].sort((a, b) => a.maxWeight - b.maxWeight)
-  const band = sorted.find((b) => weightKg <= b.maxWeight) ?? sorted[sorted.length - 1]
+  const band = sorted.find((b) => weightKg <= b.maxWeight) ?? sorted[sorted.length - 1]!
   let price = band.price
   if (ctx.cod && cp.codSurcharge) {
     price += cp.codSurcharge

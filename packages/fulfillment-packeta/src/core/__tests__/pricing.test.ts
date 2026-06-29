@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { calculateShippingPrice } from "../pricing"
-import type { PriceTable } from "../types"
+import type { PriceTable } from "../../types"
 
 const table: PriceTable = {
   cz: {
