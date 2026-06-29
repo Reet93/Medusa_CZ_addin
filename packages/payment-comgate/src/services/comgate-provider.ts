@@ -4,8 +4,8 @@ import {
   PaymentActions,
   PaymentSessionStatus,
 } from "@medusajs/framework/utils"
-import { ComgateClient, toMinorUnits } from "../core/comgate-client"
-import type { ComgateOptions, ComgateSessionData, ComgateStatus } from "../types"
+import { ComgateClient, toMinorUnits } from "../core/comgate-client.js"
+import type { ComgateOptions, ComgateSessionData, ComgateStatus } from "../types.js"
 
 class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
   static identifier = "comgate"
