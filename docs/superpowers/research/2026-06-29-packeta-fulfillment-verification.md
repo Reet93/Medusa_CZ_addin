@@ -110,44 +110,116 @@ Source: https://docs.medusajs.com/resources/storefront-development/checkout/ship
 
 ## PART B — Packeta (Zásilkovna) API surface
 
-Packeta exposes **two** complementary APIs. Operations are split — pricing/labels/shipments live in
-SOAP; pickup-point catalog lives in REST; point _selection_ happens client-side via the Widget (Part C).
+> **Re-verified 2026-06-29 against the live `docs.packeta.com` (Docusaurus, JS-rendered — read this
+> session via a headless browser, not memory).** This upgrades the prior pass.
 
-| Surface            | Style     | Base / endpoint                                                                        | Auth                                                             |
-| ------------------ | --------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `packetApi` (SOAP) | SOAP/WSDL | `https://www.zasilkovna.cz/api/soap.wsdl` (PHP-safe variant: `…/soap-php-bugfix.wsdl`) | **API password** (32-char hex), passed as first arg of each call |
-| Pickup-point REST  | JSON/XML  | `https://pickup-point.api.packeta.com/v5/<API_KEY>/…`                                  | **API key** in URL path                                          |
-| Widget v6          | JS embed  | `https://widget.packeta.com/v6/www/js/library.js`                                      | **API key** (public)                                             |
+Packeta's **main API** is offered in **two interchangeable transports of the same methods** plus a separate
+pickup-point export REST and the client-side Widget. Doc quote (getting-started): _"We provide an API
+interface utilizing either a SOAP protocol or a REST interface with XML request bodies. **Both options
+function identically.**"_
 
-**API key vs API password (do not confuse):** the **API key** is the public client identifier used in
-the REST URL and the widget; the **API password** is the secret 32-char hex used to authenticate SOAP
-write calls (`createPacket`, etc.). Both come from the Packeta client portal.
+| Surface                       | Style               | Base / endpoint                                                                                                                                                        | Auth                                                         |
+| ----------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **Main API — SOAP**           | SOAP/WSDL           | `https://www.zasilkovna.cz/api/soap.wsdl` (PHP 32-bit-safe: `…/soap-php-bugfix.wsdl`; api-reference also uses `https://soap.api.packeta.com/api/soap-php-bugfix.wsdl`) | **API password** (32-char hex), **first arg of every call**  |
+| **Main API — REST/XML**       | HTTP POST, XML body | `https://www.zasilkovna.cz/api/rest`                                                                                                                                   | **API password**, as `<apiPassword>` element in the XML body |
+| Pickup-point export REST (v5) | JSON/XML            | `https://pickup-point.api.packeta.com/v5/<API_KEY>/…`                                                                                                                  | **API key** in URL path                                      |
+| Widget v6                     | JS embed            | `https://widget.packeta.com/v6/www/js/library.js`                                                                                                                      | **API key** (public, `string[16]`)                           |
+
+**REST/XML is NOT a JSON REST API** — it is the _same_ methods as SOAP, sent as an HTTP POST whose XML root
+element is the method name and whose children are the args (first = `<apiPassword>`); the response is XML,
+root = return-type name. Example:
+
+```xml
+<createPacket>
+  <apiPassword>__API_PASSWORD__</apiPassword>
+  <packetAttributes>
+    <number>123456</number><name>John</name><surname>Doe</surname>
+    <email>example@packetatest.com</email><phone>+420777123456</phone>
+    <addressId>79</addressId><cod>145.55</cod><value>145.55</value>
+    <weight>2</weight><eshop>{{SENDER_INDICATION}}</eshop>
+  </packetAttributes>
+</createPacket>
+```
+
+**Recommendation for a Node/Medusa plugin: prefer the REST/XML transport.** It sidesteps the PHP-oriented
+WSDL/SoapClient quirks (the docs warn the native PHP `SoapClient` mishandles 64-bit packet ids on 32-bit
+systems — hence the bugfix WSDL) and lets you POST a small XML string with `fetch` + a tiny XML
+builder/parser (e.g. `fast-xml-parser`), no SOAP stack required. Both transports expose the exact same
+method set and fields, so the choice is purely transport ergonomics. (If you prefer SOAP, the `soap` npm
+package works against the WSDL.)
+
+**Sandbox / testing — [High], verbatim:** _"Packeta does not have a sandbox environment. You can use your
+account for testing purposes as there are no charges unless the packet physically enters our network. You
+can create a testing sender so your real packets are not affected by your testing."_ → test against the
+**real** endpoint with a dedicated **test sender** (the `eshop` field); never call `createShipment` (the
+hand-over) on test packets; `cancelPacket` to clean up. There is **no** test API key/password.
+
+**API key vs API password (do not confuse):** the **API key** (`string[16]`, public) is used in the
+pickup-point REST URL and the Widget; the **API password** (32-char hex, secret) authenticates every
+main-API call (SOAP or REST/XML). Both come from the Packeta client portal ("Client section").
 Sources: https://docs.packeta.com/docs/getting-started/packeta-api ,
+https://docs.packeta.com/docs/api-reference/api-methods ,
 https://github.com/Zasilkovna/prestashop/blob/v2.1/packetery/packetery.api.php
 
-### B1. SOAP `packetApi` operations — [High] (names verified against the official Zasilkovna PrestaShop plugin)
+### B1. Main-API operations — [High] (full method list + prototypes verified verbatim from docs.packeta.com/docs/api-reference/api-methods)
 
-WSDL: `http://www.zasilkovna.cz/api/soap-php-bugfix.wsdl` (the PHP-bugfix WSDL the official plugin uses;
-the canonical WSDL is `…/api/soap.wsdl`). Every call takes `apiPassword` as the first argument.
+Every call takes `apiPassword` as its (docs-omitted) first argument. Complete method set with exact
+prototypes (SOAP types shown; the REST/XML transport uses the identical names/args as XML elements):
 
-| Operation                | Purpose                                                                      |
-| ------------------------ | ---------------------------------------------------------------------------- |
-| `createPacket`           | Create a shipment (packet). Returns packet `id` + `barcode`.                 |
-| `createShipment`         | Close/hand over a batch of created packets to Packeta.                       |
-| `packetAttributesValid`  | Validate packet attributes **without** creating (use in tests / pre-submit). |
-| `packetStatus`           | Current status code/text of a packet (for tracking sync).                    |
-| `packetTracking`         | Full tracking history of a packet.                                           |
-| `packetLabelPdf`         | Single-packet label PDF (e.g. format `"A7 on A4"`).                          |
-| `packetsLabelsPdf`       | Multi-packet labels PDF in one call.                                         |
-| `packetCourierNumber`    | Carrier/courier tracking number (for external-carrier packets).              |
-| `cancelPacket`           | Cancel a packet.                                                             |
-| `senderGetReturnRouting` | Return-routing info for a sender (returns flow).                             |
+| Operation (prototype)                                                             | Purpose                                                                                                         |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `PacketIdDetail createPacket(PacketAttributes attributes)`                        | **Create a packet/shipment.** Returns `PacketIdDetail` (`id` + `barcode`).                                      |
+| `void packetAttributesValid(PacketAttributes attributes)`                         | Validate packet attributes **without** creating (pre-submit / tests).                                           |
+| `void cancelPacket(unsignedLong packetId)`                                        | **Cancel** a not-yet-physically-submitted packet.                                                               |
+| `ShipmentIdDetail createShipment(PacketIds packetIds, string customBarcode)`      | Close / hand a batch of created packets over to Packeta.                                                        |
+| `ShipmentPacketsResult shipmentPackets(string shipmentId)`                        | List packets in a shipment.                                                                                     |
+| `CurrentStatusRecord packetStatus(unsignedLong packetId)`                         | **Current status** of a packet (tracking sync).                                                                 |
+| `StatusRecords packetTracking(unsignedLong packetId)`                             | **Full tracking history** of a packet.                                                                          |
+| `PacketInfoResult packetInfo(unsignedLong packetId)`                              | Packet detail info.                                                                                             |
+| `binary packetLabelPdf(unsignedLong packetId, string format, unsignedInt offset)` | **Single-packet label PDF** (`format` e.g. `A6 on A4`, `A7 on A4`, `A7 on A6`; `offset` skips label positions). |
+| `binary packetsLabelsPdf(PacketIds packetIds, string format, unsignedInt offset)` | Multi-packet labels PDF in one call.                                                                            |
+| `binary packetLabelZpl(unsignedLong packetId, unsignedInt dpi)`                   | Label as ZPL (thermal printers).                                                                                |
+| `string packetCourierNumber(unsignedLong packetId)`                               | Carrier/courier tracking number (external-carrier packets).                                                     |
+| `string packetCourierNumberV2(unsignedLong packetId)`                             | V2 (`PacketCourierNumberV2Result`).                                                                             |
+| `ExternalStatusRecords packetCourierTracking(unsignedLong packetId)`              | External-carrier tracking events.                                                                               |
+| `binary packetCourierLabelPdf(unsignedLong packetId, string courierNumber)`       | External-carrier label PDF (PNG/ZPL variants exist).                                                            |
+| `binary barcodePng(string barcode)`                                               | Code-128 PNG (`packetId` prefixed with `Z`, e.g. `Z1234567890`).                                                |
+| `PacketDetail createPacketClaimWithPassword(ClaimWithPasswordAttributes a)`       | Create a claim/return packet (supersedes deprecated `createPacketClaim`).                                       |
+| `CreatePacketsB2BResults createPacketsB2B(PacketB2BAttributes attributes)`        | Create B2B packets.                                                                                             |
+| `string[] senderGetReturnRouting(string senderLabel)`                             | Return-routing info for a sender (returns flow).                                                                |
+| `NullableDate packetGetStoredUntil(...)` / `void packetSetStoredUntil(...)`       | Read/set the pickup-point storage deadline.                                                                     |
 
-`createPacket` attribute fields (verified verbatim from `packetery.api.php`):
-`number` (your order id), `name`, `surname`, `email`, `phone`, `addressId` (**Packeta pickup-point id**),
-`currency`, `cod` (cash-on-delivery amount; `0` if prepaid), `value` (order value, used for insurance),
-`weight` (kg), `eshop` (sender label / shop identifier). Address-delivery adds `zip`, `city`, `street`,
-`houseNumber`, optional `company`; external carrier pickup adds `carrierPickupPoint`.
+WSDL host note: getting-started cites `https://www.zasilkovna.cz/api/soap.wsdl` (PHP 32-bit-safe variant
+`…/soap-php-bugfix.wsdl`); the api-reference examples use `https://soap.api.packeta.com/api/soap-php-bugfix.wsdl`.
+`createPacket` returns **`PacketIdDetail`** = new packet `id` (`unsignedLong` — **treat as string** to
+avoid 64-bit truncation) + `barcode`. Errors: `PacketAttributesFault` (per-field), `IncorrectApiPasswordFault`;
+cancel errors: `PacketIdFault`, `CancelNotAllowedFault`.
+
+**`PacketAttributes` fields — verbatim from docs.packeta.com/docs/api-reference/data-structures** (Required/constraints as documented):
+
+| Type          | Field                               | Required                  | Notes                                                                             |
+| ------------- | ----------------------------------- | ------------------------- | --------------------------------------------------------------------------------- |
+| `string`      | `number`                            | **yes**                   | Unique e-shop order id (1–36 alnum).                                              |
+| `string`      | `name` / `surname`                  | **yes**                   | Recipient (1–32, restricted charset).                                             |
+| `string`      | `company`                           | no                        | 1–32 alnum.                                                                       |
+| `string`      | `email`                             | if no `phone`             | Valid email.                                                                      |
+| `string`      | `phone`                             | if no `email`             | Valid phone (see phone-number-formats page).                                      |
+| `unsignedInt` | `addressId`                         | **yes**                   | **Pickup-point branch ID, or external-carrier ID** — the widget's `point.id`.     |
+| `string`      | `currency`                          | no                        | `CZK,EUR,HUF,PLN,RON`.                                                            |
+| `decimal`     | `cod`                               | no                        | COD; whole number for CZK, multiple of 5 for HUF; `0`/omit if prepaid.            |
+| `decimal`     | `value`                             | **yes**                   | Packet value (insurance); max per TOS.                                            |
+| `decimal`     | `weight`                            | **yes**                   | kg.                                                                               |
+| `string`      | `eshop`                             | when >1 sender            | **Sender indication** — unknown value creates a new sender (use for test sender). |
+| `date`        | `deliverOn`                         | no                        | Scheduled delivery `YYYY-MM-DD`, within 14 days.                                  |
+| `boolean`     | `adultContent`                      | no                        | 18+ handover (CZ/SK/HU/RO internal points only).                                  |
+| `string`      | `note`                              | no                        | 1–128; shown on label if courier supports.                                        |
+| `string`      | `street`/`houseNumber`/`city`/`zip` | **on home delivery**      | Address-delivery (`province` optional).                                           |
+| `string`      | `carrierService`                    | no                        | Comma-separated carrier services.                                                 |
+| `string`      | `carrierPickupPoint`                | **yes for some carriers** | External carrier's pickup-point code.                                             |
+
+> **Internal pickup point vs external carrier:** for a **Packeta internal** point set `addressId = point.id`.
+> For an **external-carrier** point the widget returns `carrierId` + `carrierPickupPointId`; set
+> `addressId = carrierId` and `carrierPickupPoint = carrierPickupPointId`.
 
 **Rate / price calculation — [Medium / important caveat].** Packeta's SOAP/REST API does **not** expose
 a real-time "quote this cart" rate endpoint. Shipping prices are governed by your **contractual price
@@ -179,38 +251,63 @@ Source: https://docs.packeta.com/docs/getting-started/pickup-points (and WebSear
 
 ## PART C — Packeta Widget v6 (storefront pickup-point selector)
 
-### C1. Embedding — [High] (method/URL verified) / [Medium] (exact point-object field list)
+### C1. Embedding — [High] (method, opts, AND point object now verified verbatim from docs.packeta.com/docs/pudo-delivery/widget)
 
-Include the library, then call the global:
+> Upgraded from [Medium] → [High]: the JS-rendered widget doc was read this session. The library is now
+> the documented integration library, not the bare iframe bundle.
+
+Include the integration library, then call the global:
 
 ```html
 <script src="https://widget.packeta.com/v6/www/js/library.js"></script>
 ```
 
 ```js
-Packeta.Widget.pick(apiKey, callback, opts?, inElement?)
+Packeta.Widget.pick(apiKey, callback, options?, inElement?)
+Packeta.Widget.close()   // closes any open widget
 ```
 
-(signature verified verbatim from `widget.packeta.com/v6/www/js/library.js`). `apiKey` = the public API
-key; `callback(point)` fires on selection (or `null` on close); `opts` configures the widget; optional
-`inElement` mounts it inline instead of as a modal. The widget talks to the host via `postMessage`
-(`message.packetaPoint`) — relevant if you ever wrap it yourself.
+**Arguments (verbatim from docs):**
 
-`opts` (configuration) commonly supported: `language` (e.g. `"cs"`/`"en"`), `country` (e.g. `"cz,sk"`),
-`vendors` (restrict to Packeta and/or specific external carriers + countries), `defaultCurrency`,
-`defaultPrice`, `weight`. **[Medium]** — exact opts keys vary by widget build; confirm against the live
-widget doc when wiring.
+- `apiKey` `string[16]` **required** — "An identifier of your Packeta account" (the public **API key**, NOT the SOAP API password).
+- `callback` `function` **required** — "called when the user confirms or cancels PUDO point selection. The function will receive one argument, that will be either a `Point` object if PUDO point was selected, or `null` if selection was cancelled." (Doc note: "To get selected PUDO point's vendor code, call the validation endpoint.")
+- `options` — a JSON-file URL or an `Options` object (see below).
+- `inElement` — optional DOM element to render the widget inline (modal otherwise). The app lives in an isolated iframe and communicates via `window.postMessage()`. Recommended iframe perms: `sandbox="allow-scripts allow-same-origin" allow="geolocation"`.
 
-**Selected `point` object — [Medium]** (commonly documented fields; verify against the live callback in
-implementation, the JS-rendered doc could not be quoted this session):
-`id` (the value to send to Medusa → becomes Packeta `addressId`), `name`, `place`/`street`, `city`, `zip`,
-`country`, `currency`, `carrierId` (set for external-carrier points), `carrierPickupPointId`,
-`pickupPointType` (Packeta-internal vs external), `formatedValue` (display label),
-`latitude`, `longitude`, `url`.
+**`Options` (configuration) — documented keys:** `webUrl`, `appIdentity` (e.g. `"prestashop-1.6-packeta-4.1"`),
+`vendors` (Array of `Vendor` — **recommended**; restricts which carriers/points show), `country`
+(comma-separated ISO-3166-1 alpha-2 lowercase, e.g. `"cz,sk"`), `language` (`string[2]`, e.g. `cs`,`en`,`sk`,`de`…),
+`claimAssistant`, `packetConsignment`, `weight` (kg), `length`/`width`/`depth` (cm), `longitude`/`latitude`,
+`livePickupPoint` (18+), `expeditionDay` (`YYYY-MM-DD`), `defaultPrice`, `defaultCurrency`, `centerExternalId`.
+`Vendor` = `{ carrierId? , country? , group? ("zbox" | "" for zpoint), selected?, price?, currency? }`.
 
-There is also a server-side validation endpoint `POST https://widget.packeta.com/v6/pps/api/widget/v1/validate`
-(JSON body) to re-verify a chosen point id server-side — use it in `validateFulfillmentData` if you want
-defense-in-depth rather than trusting the client payload.
+**Selected `Point` object — [High], verbatim field list from the doc** (key fields for Medusa):
+
+| Field                                                                                       | Meaning                                                                                                                                               |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                                                                        | **Internal pickup-point Branch ID** → send to Medusa → becomes Packeta `addressId`. (External points use `carrierId`+`carrierPickupPointId` instead.) |
+| `name`                                                                                      | City + street (large cities incl. district).                                                                                                          |
+| `place`,`street`,`city`,`zip`,`country`,`currency`                                          | Address parts; `country` ISO alpha-2 lowercase; `currency` ISO-4217.                                                                                  |
+| `gps`                                                                                       | `{ lat, lon }`.                                                                                                                                       |
+| `pickupPointType`                                                                           | `"internal"` (Packeta) or `"external"` (carrier).                                                                                                     |
+| `carrierId`                                                                                 | external points only — external carrier ID.                                                                                                           |
+| `carrierPickupPointId`                                                                      | external points only — external carrier's point code.                                                                                                 |
+| `group`                                                                                     | internal points — `"zbox"` or empty (`zpoint`).                                                                                                       |
+| `externalId`                                                                                | Unique identifier.                                                                                                                                    |
+| `branchCode`,`routingCode`                                                                  | URL-safe id / routing code (custom labels).                                                                                                           |
+| `packetConsignment`,`claimAssistant`,`maxWeight`,`creditCardPayment`,`wheelchairAccessible` | capability flags.                                                                                                                                     |
+| `openingHours`,`directions*`,`photo`,`error`/`warning`/`recommended`/`isNew`                | display/availability metadata.                                                                                                                        |
+| `formatedValue`,`nameStreet`,`url`,`photos`                                                 | **deprecated** aliases (`name`/`branchCode`/`photo` replace them).                                                                                    |
+
+**Server-side validation endpoint (recommended for `validateFulfillmentData`):**
+`POST https://widget.packeta.com/v6/pps/api/widget/v1/validate`, JSON body
+`{ apiKey, point: { id } | { carrierId, carrierPickupPointId }, options: { country, vendors, weight, … } }`
+(same options the widget was initialized with). Responses: `200` (inspect `isValid` + `errors[]`),
+`400` (bad params), `401` (invalid API key). On success returns `{ isValid, point: { name, address:{street,city,zip,country}, group|carrierId }, errors[] }`.
+Error codes incl. `NotFound`, `InvalidCountry`, `InvalidCarrier`, `InvalidWeight`, `PickupPointVacation`,
+`PickupPointIsFull`, `PickupPointForbidden`, `NoCashOnDelivery`, `InvalidDimensions`. The doc explicitly
+warns selection happens on the user's device and "technically skilled user is able to bypass our
+validation" — so validate server-side, do not trust the raw client payload.
 
 ### C2. Where this lives in the medusa-cz plugin
 
@@ -332,11 +429,15 @@ packages/fulfillment-packeta/
 
 ## Open items (carry into M2 planning)
 
-- Exact **widget v6 `point` object field names** and `opts` keys — [Medium], JS-rendered docs not quotable
-  this session; confirm against the live callback / `docs.packeta.com/docs/pudo-delivery/widget` when wiring C1.
-- **Closing PR for #9598** — [Medium]; issue verified CLOSED/COMPLETED (2024-12-24) and fix verified in
-  v2.17.0 source, but no single auto-linked PR. Fix outcome is not in doubt.
+- ~~Exact widget v6 `point` object field names and `opts` keys~~ — **RESOLVED 2026-06-29 → [High]** (C1):
+  JS-rendered widget doc read this session; full `Point`/`Options` field lists + validate endpoint now verbatim.
+- **Closing PR for #9598** — [Medium]; issue verified CLOSED/COMPLETED (2024-12-24, closed by maintainer
+  `shahednasser`: "this issue is fixed in the latest release"; commenters point at ~v2.1.3) and the
+  `calculatePrice` wiring verified present in v2.17.0 source. Exact patch version is [Medium]; fix outcome is not in doubt.
 - **Packeta `value`/`cod`/`weight` units + currency** vs Medusa amounts — [Medium]; verify before money flows.
-- **Return flow** (`createReturnFulfillment` + `senderGetReturnRouting`) — likely out of M2 scope; confirm.
-- **No live rate API** assumption — [Medium-High]; if a contractual quote endpoint exists for your account,
-  re-verify, otherwise price from config.
+  (Docs constraints confirmed: `cod` whole-number for CZK, multiple of 5 for HUF; `currency` ∈ CZK/EUR/HUF/PLN/RON.)
+- **Return flow** (`createReturnFulfillment` + `createPacketClaimWithPassword`/`senderGetReturnRouting`) — likely out of M2 scope; confirm.
+- **No live rate API** assumption — **confirmed [High]**: Packeta exposes no per-request rate/quote endpoint;
+  prices come from the contractual price list. `calculatePrice` must compute from provider `options` (config price table).
+- **Testing** — confirmed [High]: no sandbox; test on the real endpoint with a dedicated test `eshop` sender,
+  never call `createShipment` on test packets (no charge until handed over); `cancelPacket` to clean up.
