@@ -142,6 +142,9 @@ describe("PacketaClient label/shipment/returns", () => {
     )
     const res = await new PacketaClient(opts).createPacketClaim({ number: "ret-1", value: 10 })
     expect(res).toEqual({ id: "77", barcode: "Z77" })
+    const body = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1]
+      .body as string
+    expect(body).toContain("<createPacketClaimWithPassword>")
   })
 
   it("senderGetReturnRouting returns an array of strings", async () => {
@@ -151,5 +154,34 @@ describe("PacketaClient label/shipment/returns", () => {
     )
     const res = await new PacketaClient(opts).senderGetReturnRouting("my-sender")
     expect(res).toEqual(["r1", "r2"])
+  })
+
+  it("senderGetReturnRouting wraps a single <string> into an array", async () => {
+    mockFetchOnce(
+      200,
+      `<response status="ok"><result><string>only</string></result></response>`
+    )
+    const res = await new PacketaClient(opts).senderGetReturnRouting("my-sender")
+    expect(res).toEqual(["only"])
+  })
+
+  it("packetLabelPdf reads the base64 from a #text node", async () => {
+    // A <result> with surrounding whitespace causes fast-xml-parser to emit { "#text": "..." }
+    mockFetchOnce(
+      200,
+      `<response status="ok"><result> JVBERi0xLjQK </result></response>`
+    )
+    const b64 = await new PacketaClient(opts).packetLabelPdf("1", "A6 on A4")
+    expect(b64.trim()).toBe("JVBERi0xLjQK")
+  })
+
+  it("packetLabelPdf throws PacketaError when result has no PDF content", async () => {
+    mockFetchOnce(
+      200,
+      `<response status="ok"><result><unexpected>data</unexpected></result></response>`
+    )
+    await expect(
+      new PacketaClient(opts).packetLabelPdf("1", "A6 on A4")
+    ).rejects.toMatchObject({ fault: "LabelParseError" })
   })
 })
