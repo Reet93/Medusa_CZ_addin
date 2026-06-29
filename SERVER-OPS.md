@@ -219,7 +219,61 @@ secrets). Fine for now; add off-site + encryption before real customer data (see
 
 ---
 
+## 13. Coolify deploy (IN PROGRESS — blocked on migrate hang)
+
+**Goal:** deploy the **demo** stack (apps/backend + storefront) to Coolify on the server for a
+live Comgate round-trip. Production Medusa (`:9000`, systemd) is **untouched**.
+
+**Coolify:** installed on the server (v4.1.2), dashboard `http://192.168.0.156:8000`, public IP
+`188.75.149.32`. Admin account = user's. API token issued (revoke when done).
+- Server (localhost): `x13ax60jnk0i5atvfdgqnyg4`  ·  Project `medusa-cz`: `d1jiy29w0od06jvc8euz7w1b`  ·  env `production`: `v4quk4lvi1qfbh6nuxjkmstr`
+- Postgres `medusa-db` `r12vnn8fg8ezcigysu2uz4z7` (db `medusa_demo`, user `medusa`) — isolated from prod.
+- Redis `medusa-redis` `onwdnyjnwg38k4nsj3nqd1w7`.
+- Backend app `medusa-backend` `i8s78go8fekqnhb66ywnt3e2`, domain `i8s78go8fekqnhb66ywnt3e2.188.75.149.32.sslip.io`, build = Dockerfile `/apps/backend/Dockerfile`, branch `m1-comgate-deploy`.
+- Coolify localhost server needed Coolify's pubkey in **root** `authorized_keys` + `PermitRootLogin prohibit-password` (`/etc/ssh/sshd_config.d/10-coolify.conf`).
+
+**What works:** Docker build ✅, **provider loads** ✅ (the `.js`-extension fix, proven in-container),
+DB connects ✅, migrations table created ✅.
+
+**BLOCKER:** `medusa db:migrate` hangs at "Running migrations…" — event loop idle (`ep_poll`),
+1 idle pg socket → **awaiting a promise that never resolves**. Ruled out: our plugin/config
+(minimal config hangs), worker mode, NODE_ENV, advisory locks, Redis (real redis configured +
+reachable, still hangs), **and Medusa version** (2.17.0 hangs same as 2.15.5).
+- **Leading hypothesis:** container runs from `/app/apps/backend` with the **pnpm workspace
+  symlinks** present; Medusa's migration-file scan over the symlinked `.pnpm` store loops/hangs.
+  Production works because it runs from a **flat self-contained `.medusa/server`** (no symlinks).
+- **Next fix to try:** Dockerfile → proper Medusa prod pattern: `medusa build` then run from
+  `.medusa/server` with its own `npm install` (flat deps, no workspace symlinks). Caveat: the
+  workspace plugin (`@medusa-cz/payment-comgate`) must be present in `.medusa/server/node_modules`
+  (bundle/copy it, or `npm i` the built tarball). Alternatively run the demo backend on the HOST
+  like production (no container).
+
+**Useful one-liners:**
+```bash
+# app container logs / shell (on server)
+n=$(docker ps --filter name=i8s78go8fekqnhb66ywnt3e2 --format '{{.Names}}'|head -1); docker logs --tail 40 "$n"
+# demo DB table count
+docker exec $(docker ps --filter name=r12vnn8fg8ezcigysu2uz4z7 --format '{{.Names}}'|head -1) psql -U medusa -d medusa_demo -tAc "select count(*) from information_schema.tables where table_schema='public';"
+# trigger deploy (Coolify API; TOKEN from user)
+curl -s -X POST -H "Authorization: Bearer <TOKEN>" "http://192.168.0.156:8000/api/v1/deploy?uuid=i8s78go8fekqnhb66ywnt3e2&force=true"
+```
+
+---
+
 ## 12. Session log
+
+### 2026-06-29 (pm) — Coolify deploy + plugin-load fix; migrate hang open
+- **Plugin packaging FIX (important):** the provider as shipped in PR #2 would NOT load in any
+  Medusa app — `medusa plugin:build` emits ESM but `moduleResolution:Bundler` allowed extensionless
+  relative imports that Node's ESM loader rejects. Fixed with `.js` import extensions +
+  `src/providers/comgate/index.ts` (gopay layout) + `./providers/*` export. On branch
+  `m1-comgate-deploy` (commit `dea37c5`); **needs cherry-pick to master.**
+- **Demo wiring + Dockerfile** for Coolify (`workspace:*` dep, dropped yalc).
+- **Bumped @medusajs/* 2.15.5 → 2.17.0** (match prod) — did NOT fix the migrate hang.
+- **Coolify** stood up on the server; backend deployed, provider loads, DB connects — but
+  `medusa db:migrate` hangs (see §13). Production untouched/healthy throughout.
+- **connect-server.bat** fixed (flash-close was literal `(%TS%)` parens closing the if-block;
+  rewritten with a goto label). NordVPN/Tailscale were red herrings.
 
 ### 2026-06-29 — Comgate provider complete (all 10 methods, TDD)
 
