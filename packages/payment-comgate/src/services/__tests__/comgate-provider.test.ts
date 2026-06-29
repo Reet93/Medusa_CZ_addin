@@ -2,18 +2,24 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 
 const create = vi.fn()
 const status = vi.fn()
+const capturePreauth = vi.fn()
+const refund = vi.fn()
+const cancelPreauth = vi.fn()
 vi.mock("../../core/comgate-client", async (orig) => {
   const actual = await orig<typeof import("../../core/comgate-client")>()
   return {
     ...actual,
-    ComgateClient: vi.fn().mockImplementation(() => ({ create, status })),
+    ComgateClient: vi
+      .fn()
+      .mockImplementation(() => ({ create, status, capturePreauth, refund, cancelPreauth })),
   }
 })
 
 import ComgateProviderService from "../comgate-provider"
+import type { ComgateOptions } from "../../types"
 
-const options = { merchant: "123456", secret: "s", test: true }
-function makeProvider(opts = options) {
+const options: ComgateOptions = { merchant: "123456", secret: "s", test: true }
+function makeProvider(opts: ComgateOptions = options) {
   return new ComgateProviderService({} as Record<string, unknown>, opts)
 }
 
@@ -48,5 +54,43 @@ describe("getPaymentStatus maps Comgate→Medusa", () => {
     const provider = makeProvider()
     const res = await provider.getPaymentStatus({ data: { transId: "T1" } } as never)
     expect(res.status).toBe(medusa)
+  })
+})
+
+describe("authorizePayment", () => {
+  it("auto mode: PAID → captured (Medusa auto-captures)", async () => {
+    status.mockResolvedValue({ code: 0, status: "PAID" })
+    const res = await makeProvider({ ...options, capture: "automatic" }).authorizePayment({
+      data: { transId: "T1" },
+    } as never)
+    expect(res.status).toBe("captured")
+  })
+  it("manual mode: AUTHORIZED → authorized", async () => {
+    status.mockResolvedValue({ code: 0, status: "AUTHORIZED" })
+    const res = await makeProvider({ ...options, capture: "manual" }).authorizePayment({
+      data: { transId: "T1" },
+    } as never)
+    expect(res.status).toBe("authorized")
+  })
+  it("still pending → pending", async () => {
+    status.mockResolvedValue({ code: 0, status: "PENDING" })
+    const res = await makeProvider().authorizePayment({ data: { transId: "T1" } } as never)
+    expect(res.status).toBe("pending")
+  })
+})
+
+describe("capturePayment", () => {
+  it("auto mode: no-op (no preauth capture call)", async () => {
+    await makeProvider({ ...options, capture: "automatic" }).capturePayment({
+      data: { transId: "T1" },
+    } as never)
+    expect(capturePreauth).not.toHaveBeenCalled()
+  })
+  it("manual mode: calls capturePreauth", async () => {
+    capturePreauth.mockResolvedValue({ code: 0, message: "OK" })
+    await makeProvider({ ...options, capture: "manual" }).capturePayment({
+      data: { transId: "T1" },
+    } as never)
+    expect(capturePreauth).toHaveBeenCalledWith("T1", undefined)
   })
 })

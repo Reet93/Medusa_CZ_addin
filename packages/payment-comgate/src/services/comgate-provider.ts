@@ -88,11 +88,25 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
   private notImplemented(m: string): never {
     throw new Error(`ComgateProviderService.${m} not implemented`)
   }
-  async authorizePayment(): Promise<never> {
-    return this.notImplemented("authorizePayment")
+  async authorizePayment(input: {
+    data?: Record<string, unknown>
+  }): Promise<{ status: PaymentSessionStatus; data?: Record<string, unknown> }> {
+    const transId = input.data?.transId as string
+    const res = await this.client_.status(transId)
+    return { status: this.mapStatus(res.status), data: { ...input.data, status: res.status } }
   }
-  async capturePayment(): Promise<never> {
-    return this.notImplemented("capturePayment")
+
+  async capturePayment(input: {
+    amount?: unknown
+    data?: Record<string, unknown>
+  }): Promise<{ data?: Record<string, unknown> }> {
+    if (this.capture_ === "manual") {
+      const transId = input.data?.transId as string
+      const amount = input.amount != null ? toMinorUnits(this.num(input.amount)) : undefined
+      await this.client_.capturePreauth(transId, amount)
+    }
+    // automatic: Comgate already captured on PAID — nothing to do.
+    return { data: { ...input.data, status: "PAID" } }
   }
   async refundPayment(): Promise<never> {
     return this.notImplemented("refundPayment")
