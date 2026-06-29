@@ -12,5 +12,30 @@ module.exports = defineConfig({
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
     }
-  }
+  },
+  plugins: [
+    {
+      resolve: "@medusa-cz/payment-comgate",
+      options: {},
+    },
+  ],
+  modules: [
+    {
+      resolve: "@medusajs/medusa/payment",
+      options: {
+        providers: [
+          {
+            resolve: "@medusa-cz/payment-comgate/providers/comgate",
+            id: "comgate",
+            options: {
+              merchant: process.env.COMGATE_MERCHANT,
+              secret: process.env.COMGATE_SECRET,
+              test: process.env.COMGATE_TEST !== "false",
+              capture: process.env.COMGATE_CAPTURE ?? "automatic",
+            },
+          },
+        ],
+      },
+    },
+  ],
 })
