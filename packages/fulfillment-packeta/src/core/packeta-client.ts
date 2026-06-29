@@ -77,4 +77,30 @@ export class PacketaClient {
     })
     return { id: String(result.id), barcode: String(result.barcode) }
   }
+
+  async cancelPacket(packetId: string): Promise<void> {
+    await this.call("cancelPacket", { packetId })
+  }
+
+  async packetStatus(packetId: string): Promise<{ statusCode: string; statusText: string }> {
+    const r = await this.call<{ statusCode: string | number; statusText: string }>("packetStatus", {
+      packetId,
+    })
+    return { statusCode: String(r.statusCode), statusText: String(r.statusText ?? "") }
+  }
+
+  async packetTracking(
+    packetId: string
+  ): Promise<Array<{ statusCode: string; statusText: string; dateTime?: string }>> {
+    const r = await this.call<{ record?: unknown }>("packetTracking", { packetId })
+    const records = r.record == null ? [] : Array.isArray(r.record) ? r.record : [r.record]
+    return records.map((rec) => {
+      const x = rec as Record<string, unknown>
+      return {
+        statusCode: String(x.statusCode ?? ""),
+        statusText: String(x.statusText ?? ""),
+        dateTime: x.dateTime != null ? String(x.dateTime) : undefined,
+      }
+    })
+  }
 }
