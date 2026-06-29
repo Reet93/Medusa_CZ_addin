@@ -111,7 +111,10 @@ export class PacketaClient {
       offset,
     })
     // <result> holds the base64 PDF directly (text node).
-    return typeof r === "string" ? r : String((r as Record<string, unknown>)["#text"] ?? r)
+    if (typeof r === "string") return r
+    const text = (r as Record<string, unknown>)["#text"]
+    if (typeof text === "string") return text
+    throw new PacketaError("LabelParseError", "Packeta label response had no PDF content")
   }
 
   async createShipment(
