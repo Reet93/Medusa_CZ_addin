@@ -103,4 +103,39 @@ export class PacketaClient {
       }
     })
   }
+
+  async packetLabelPdf(packetId: string, format: string, offset = 0): Promise<string> {
+    const r = await this.call<{ "#text"?: string } | string>("packetLabelPdf", {
+      packetId,
+      format,
+      offset,
+    })
+    // <result> holds the base64 PDF directly (text node).
+    return typeof r === "string" ? r : String((r as Record<string, unknown>)["#text"] ?? r)
+  }
+
+  async createShipment(
+    packetIds: string[],
+    customBarcode?: string
+  ): Promise<{ id: string; barcode: string }> {
+    const r = await this.call<{ id: string | number; barcode: string }>("createShipment", {
+      packetIds: { id: packetIds },
+      ...(customBarcode ? { customBarcode } : {}),
+    })
+    return { id: String(r.id), barcode: String(r.barcode) }
+  }
+
+  async createPacketClaim(attrs: Record<string, unknown>): Promise<PacketIdDetail> {
+    const r = await this.call<{ id: string | number; barcode: string }>(
+      "createPacketClaimWithPassword",
+      { attributes: attrs }
+    )
+    return { id: String(r.id), barcode: String(r.barcode) }
+  }
+
+  async senderGetReturnRouting(senderLabel: string): Promise<string[]> {
+    const r = await this.call<{ string?: unknown }>("senderGetReturnRouting", { senderLabel })
+    const v = r.string
+    return v == null ? [] : (Array.isArray(v) ? v : [v]).map(String)
+  }
 }
