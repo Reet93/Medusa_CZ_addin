@@ -75,3 +75,35 @@ describe("PacketaClient.createPacket", () => {
     ).rejects.toMatchObject({ retryable: true })
   })
 })
+
+describe("PacketaClient cancel/status/tracking", () => {
+  beforeEach(() => vi.restoreAllMocks())
+
+  it("cancelPacket sends the packetId and resolves on ok", async () => {
+    mockFetchOnce(200, `<response status="ok"><result/></response>`)
+    await new PacketaClient(opts).cancelPacket("9007199254740993")
+    const body = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1]
+      .body as string
+    expect(body).toContain("<cancelPacket>")
+    expect(body).toContain("<packetId>9007199254740993</packetId>")
+  })
+
+  it("packetStatus returns code + text", async () => {
+    mockFetchOnce(
+      200,
+      `<response status="ok"><result><statusCode>2</statusCode><statusText>Accepted</statusText></result></response>`
+    )
+    const res = await new PacketaClient(opts).packetStatus("1")
+    expect(res).toEqual({ statusCode: "2", statusText: "Accepted" })
+  })
+
+  it("packetTracking returns an array even for a single record", async () => {
+    mockFetchOnce(
+      200,
+      `<response status="ok"><result><record><statusCode>1</statusCode><statusText>Created</statusText></record></result></response>`
+    )
+    const res = await new PacketaClient(opts).packetTracking("1")
+    expect(Array.isArray(res)).toBe(true)
+    expect(res[0]).toMatchObject({ statusCode: "1", statusText: "Created" })
+  })
+})
