@@ -15,6 +15,7 @@ vi.mock("../../core/comgate-client", async (orig) => {
   }
 })
 
+import { PaymentActions } from "@medusajs/framework/utils"
 import ComgateProviderService from "../comgate-provider"
 import type { ComgateOptions } from "../../types"
 
@@ -116,5 +117,40 @@ describe("cancelPayment / deletePayment", () => {
       data: { transId: "T1" },
     } as never)
     expect(cancelPreauth).not.toHaveBeenCalled()
+  })
+})
+
+describe("updatePayment", () => {
+  it("re-creates the tx when amount changes pre-redirect", async () => {
+    create.mockResolvedValue({ code: 0, message: "OK", transId: "T2", redirect: "https://pay/T2" })
+    const res = await makeProvider().updatePayment({
+      amount: 20,
+      currency_code: "czk",
+      data: { transId: "T1", session_id: "ps_1" },
+    } as never)
+    expect(res.data?.transId).toBe("T2")
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ price: 2000 }))
+  })
+})
+
+describe("getWebhookActionAndData", () => {
+  it("re-queries status (never trusts the payload) and maps PAID → captured", async () => {
+    status.mockResolvedValue({ code: 0, status: "PAID", price: 1000 })
+    const res = await makeProvider().getWebhookActionAndData({
+      data: { transId: "T1", refId: "ps_1", status: "PAID" },
+      rawData: "",
+      headers: {},
+    } as never)
+    expect(res.action).toBe(PaymentActions.SUCCESSFUL) // "captured"
+    expect(res.data).toMatchObject({ session_id: "ps_1" })
+  })
+  it("maps CANCELLED → canceled", async () => {
+    status.mockResolvedValue({ code: 0, status: "CANCELLED", price: 1000 })
+    const res = await makeProvider().getWebhookActionAndData({
+      data: { transId: "T1", refId: "ps_1" },
+      rawData: "",
+      headers: {},
+    } as never)
+    expect(res.action).toBe(PaymentActions.CANCELED)
   })
 })

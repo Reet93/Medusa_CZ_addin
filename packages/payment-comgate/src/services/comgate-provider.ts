@@ -1,4 +1,9 @@
-import { AbstractPaymentProvider, BigNumber, PaymentSessionStatus } from "@medusajs/framework/utils"
+import {
+  AbstractPaymentProvider,
+  BigNumber,
+  PaymentActions,
+  PaymentSessionStatus,
+} from "@medusajs/framework/utils"
 import { ComgateClient, toMinorUnits } from "../core/comgate-client"
 import type { ComgateOptions, ComgateSessionData, ComgateStatus } from "../types"
 
@@ -84,10 +89,6 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
     return { data: { ...input.data, ...res } }
   }
 
-  // --- remaining methods still throw until later tasks ---
-  private notImplemented(m: string): never {
-    throw new Error(`ComgateProviderService.${m} not implemented`)
-  }
   async authorizePayment(input: {
     data?: Record<string, unknown>
   }): Promise<{ status: PaymentSessionStatus; data?: Record<string, unknown> }> {
@@ -135,11 +136,48 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
   async deletePayment(input: { data?: Record<string, unknown> }) {
     return this.cancelOrDelete(input)
   }
-  async updatePayment(): Promise<never> {
-    return this.notImplemented("updatePayment")
+  async updatePayment(input: {
+    amount: unknown
+    currency_code: string
+    data?: Record<string, unknown>
+  }): Promise<{ data?: Record<string, unknown> }> {
+    // Comgate tx amounts are immutable post-create → re-create for a new amount.
+    const init = await this.initiatePayment({
+      amount: input.amount,
+      currency_code: input.currency_code,
+      data: input.data,
+    })
+    return { data: { ...input.data, ...init.data } }
   }
-  async getWebhookActionAndData(): Promise<never> {
-    return this.notImplemented("getWebhookActionAndData")
+
+  async getWebhookActionAndData(payload: {
+    data: Record<string, unknown>
+    rawData: string | Buffer
+    headers: Record<string, unknown>
+  }): Promise<{ action: PaymentActions; data?: { session_id: string; amount: number } }> {
+    const transId = payload.data.transId as string
+    const sessionId = (payload.data.refId as string) ?? transId
+    // Unsigned webhook → re-query the real status (verification doc A6).
+    const res = await this.client_.status(transId)
+    const amount = res.price ?? 0
+    let action: PaymentActions
+    switch (res.status) {
+      case "PAID":
+        action = this.capture_ === "manual" ? PaymentActions.AUTHORIZED : PaymentActions.SUCCESSFUL
+        break
+      case "AUTHORIZED":
+        action = PaymentActions.AUTHORIZED
+        break
+      case "CANCELLED":
+        action = PaymentActions.CANCELED
+        break
+      case "PENDING":
+        action = PaymentActions.PENDING
+        break
+      default:
+        action = PaymentActions.NOT_SUPPORTED
+    }
+    return { action, data: { session_id: sessionId, amount } }
   }
 }
 
