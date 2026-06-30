@@ -5,6 +5,11 @@ loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
+    // Cap the DB connection pool so the full module set (+ worker process) stays
+    // well within Postgres max_connections on small/self-hosted instances.
+    databaseDriverOptions: {
+      pool: { min: 0, max: 5 },
+    },
     http: {
       storeCors: process.env.STORE_CORS!,
       adminCors: process.env.ADMIN_CORS!,
