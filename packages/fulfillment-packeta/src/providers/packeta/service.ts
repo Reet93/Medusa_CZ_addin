@@ -92,6 +92,52 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     }
     return normalized
   }
+
+  async createFulfillment(
+    data: Record<string, unknown>,
+    items: Array<Record<string, any>>,
+    order: Record<string, any> | undefined,
+    _fulfillment: Record<string, unknown>
+  ): Promise<{ data: Record<string, unknown>; labels: never[] }> {
+    const addr = (order?.shipping_address ?? {}) as Record<string, any>
+    const isExternal = (data.pickup_point_type as string) === "external"
+    const weight =
+      items.reduce(
+        (sum, it) => sum + (Number(it?.variant?.weight ?? it?.weight ?? 0) || 0) * (it?.quantity ?? 1),
+        0
+      ) || 0
+    const cod = data.cod ? Number(data.cod_amount ?? order?.item_total ?? 0) : undefined
+
+    const result = await this.client_.createPacket({
+      number: String(order?.display_id ?? order?.id ?? ""),
+      name: String(addr.first_name ?? ""),
+      surname: String(addr.last_name ?? ""),
+      email: order?.email ? String(order.email) : undefined,
+      phone: addr.phone ? String(addr.phone) : undefined,
+      addressId: isExternal
+        ? String(data.carrier_id ?? data.pickup_point_id)
+        : String(data.pickup_point_id),
+      carrierPickupPoint: isExternal
+        ? String(data.carrier_pickup_point_id ?? "")
+        : undefined,
+      value: Number(order?.item_total ?? 0),
+      weight,
+      ...(cod != null ? { cod, currency: this.options_.defaultCurrency ?? "CZK" } : {}),
+      eshop: this.options_.eshop,
+    })
+
+    return {
+      data: { ...data, packet_id: result.id, barcode: result.barcode },
+      labels: [],
+    }
+  }
+
+  async cancelFulfillment(data: Record<string, unknown>): Promise<void> {
+    const packetId = data.packet_id as string | undefined
+    if (packetId) {
+      await this.client_.cancelPacket(packetId)
+    }
+  }
 }
 
 export default PacketaProviderService

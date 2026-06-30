@@ -132,3 +132,69 @@ describe("validateFulfillmentData", () => {
     )
   })
 })
+
+describe("createFulfillment", () => {
+  const order = {
+    id: "order_1",
+    display_id: 42,
+    email: "jan@example.com",
+    item_total: 500,
+    shipping_address: { first_name: "Jan", last_name: "Novák", phone: "+420777123456" },
+  }
+  const items = [{ variant: { weight: 2 }, quantity: 1 }]
+
+  it("internal point → createPacket with addressId = pickup_point_id; stores packet id+barcode", async () => {
+    createPacket.mockResolvedValue({ id: "900719925474099", barcode: "Z900719925474099" })
+    const data = { pickup_point_id: "79", pickup_point_type: "internal" }
+    const res = await makeProvider().createFulfillment(
+      data,
+      items as never,
+      order as never,
+      {} as never
+    )
+    expect(createPacket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        number: "42",
+        name: "Jan",
+        surname: "Novák",
+        email: "jan@example.com",
+        addressId: "79",
+        value: 500,
+        weight: 2,
+      })
+    )
+    expect(res.data).toMatchObject({ packet_id: "900719925474099", barcode: "Z900719925474099" })
+    expect(res.labels).toEqual([])
+  })
+
+  it("external point → addressId = carrier_id and carrierPickupPoint set", async () => {
+    createPacket.mockResolvedValue({ id: "1", barcode: "Z1" })
+    const data = {
+      pickup_point_id: "3060",
+      pickup_point_type: "external",
+      carrier_id: "3060",
+      carrier_pickup_point_id: "ABC",
+    }
+    await makeProvider().createFulfillment(data, items as never, order as never, {} as never)
+    expect(createPacket).toHaveBeenCalledWith(
+      expect.objectContaining({ addressId: "3060", carrierPickupPoint: "ABC" })
+    )
+  })
+
+  it("COD order → cod + currency set on the packet", async () => {
+    createPacket.mockResolvedValue({ id: "1", barcode: "Z1" })
+    const data = { pickup_point_id: "79", cod: true, cod_amount: 500 }
+    await makeProvider().createFulfillment(data, items as never, order as never, {} as never)
+    expect(createPacket).toHaveBeenCalledWith(
+      expect.objectContaining({ cod: 500, currency: "CZK" })
+    )
+  })
+})
+
+describe("cancelFulfillment", () => {
+  it("cancels the stored packet id", async () => {
+    cancelPacket.mockResolvedValue(undefined)
+    await makeProvider().cancelFulfillment({ packet_id: "900719925474099" })
+    expect(cancelPacket).toHaveBeenCalledWith("900719925474099")
+  })
+})
