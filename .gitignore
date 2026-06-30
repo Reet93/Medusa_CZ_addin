@@ -26,3 +26,4 @@ coverage/
 !.env.example
 !.env.template
 !*.env.template
+*.tsbuildinfo
