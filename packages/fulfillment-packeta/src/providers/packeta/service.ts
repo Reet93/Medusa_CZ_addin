@@ -138,6 +138,43 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
       await this.client_.cancelPacket(packetId)
     }
   }
+
+  async createReturnFulfillment(
+    fulfillment: Record<string, any>
+  ): Promise<{ data: Record<string, unknown>; labels: never[] }> {
+    const src = (fulfillment?.data ?? {}) as Record<string, unknown>
+    const claim = await this.client_.createPacketClaim({
+      number: `ret-${src.packet_id ?? Date.now()}`,
+      addressId: src.pickup_point_id,
+      eshop: this.options_.eshop,
+    })
+    return {
+      data: { ...src, return_packet_id: claim.id, return_barcode: claim.barcode },
+      labels: [],
+    }
+  }
+
+  private async labelDocuments(
+    data: Record<string, unknown>
+  ): Promise<Array<{ type: string; base64: string; mime: string }>> {
+    const packetId = data.packet_id as string | undefined
+    if (!packetId) {
+      return []
+    }
+    const base64 = await this.client_.packetLabelPdf(
+      packetId,
+      this.options_.labelFormat ?? "A6 on A4"
+    )
+    return [{ type: "label", base64, mime: "application/pdf" }]
+  }
+
+  async getShipmentDocuments(data: Record<string, unknown>): Promise<any> {
+    return this.labelDocuments(data)
+  }
+
+  async retrieveDocuments(fulfillmentData: Record<string, unknown>, _documentType: string): Promise<any> {
+    return this.labelDocuments(fulfillmentData)
+  }
 }
 
 export default PacketaProviderService

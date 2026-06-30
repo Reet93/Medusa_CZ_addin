@@ -198,3 +198,35 @@ describe("cancelFulfillment", () => {
     expect(cancelPacket).toHaveBeenCalledWith("900719925474099")
   })
 })
+
+describe("createReturnFulfillment", () => {
+  it("creates a return packet claim and stores its id", async () => {
+    createPacketClaim.mockResolvedValue({ id: "77", barcode: "Z77" })
+    const res = await makeProvider().createReturnFulfillment({
+      data: { packet_id: "900719925474099", pickup_point_id: "79" },
+    } as never)
+    expect(createPacketClaim).toHaveBeenCalled()
+    expect(res.data).toMatchObject({ return_packet_id: "77", return_barcode: "Z77" })
+  })
+})
+
+describe("label documents", () => {
+  it("getShipmentDocuments returns the label PDF (base64) for the stored packet", async () => {
+    packetLabelPdf.mockResolvedValue("JVBERi0xLjQK")
+    const docs = await makeProvider().getShipmentDocuments({ packet_id: "1" })
+    expect(packetLabelPdf).toHaveBeenCalledWith("1", "A6 on A4")
+    expect(docs).toEqual([{ type: "label", base64: "JVBERi0xLjQK", mime: "application/pdf" }])
+  })
+
+  it("uses a configured labelFormat", async () => {
+    packetLabelPdf.mockResolvedValue("X")
+    await makeProvider({ ...options, labelFormat: "A7 on A4" }).getShipmentDocuments({
+      packet_id: "1",
+    })
+    expect(packetLabelPdf).toHaveBeenCalledWith("1", "A7 on A4")
+  })
+
+  it("returns [] when there is no packet id", async () => {
+    expect(await makeProvider().getShipmentDocuments({})).toEqual([])
+  })
+})
