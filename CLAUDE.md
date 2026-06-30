@@ -65,3 +65,19 @@ Before pushing, run the full local sequence so CI stays green.
 
 The DCO sign-off job only runs on PRs; pushing straight to `master` skips it,
 but keep using `git commit -s` regardless.
+
+## Server & backend
+
+The Medusa backend runs on a **self-hosted server** (not local) — there is no
+local Postgres by default. Connect via the local helper script:
+
+- `C:\Users\sosno\OneDrive\Plocha\connect-server.bat` — opens an SSH session to
+  the server as `reet`, **LAN-first with a Tailscale fallback** when off-network.
+  (User-machine path, not in the repo.)
+
+Full server operations — services (systemd server/worker split), paths, network,
+backups, and the Coolify demo-deploy state — are documented in **`SERVER-OPS.md`**.
+
+> ⚠️ The server hosts the **production** store. Do **not** run test/seed/fulfillment
+> experiments (e.g. Packeta round-trips) against the production backend — use a
+> dedicated demo/staging backend + database. See `SERVER-OPS.md` for which is which.
