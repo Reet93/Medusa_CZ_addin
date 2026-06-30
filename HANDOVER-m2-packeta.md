@@ -35,10 +35,11 @@ _Last updated: 2026-06-30. Branch: `master` (solo, no branches — see CLAUDE.md
 
 A standalone probe (`scratchpad/packeta-pathA.mjs`, reads `.env.local`, creates
 nothing dangerous) proved the full chain up to the account gate:
+
 - apiKey ✓ (validate endpoint `isValid=true`), apiPassword ✓ (authenticates).
 - Real pickup-point lookup ✓; `createPacket` request is well-formed — it reached
   the **only** failing gate: `PacketAttributesFault → "client account is not
-  approved for posting parcels."` Re-run after approval to confirm
+approved for posting parcels."` Re-run after approval to confirm
   create → status → tracking → label → cancel.
 
 ## Key fixes made this session (all pushed to `master`)
@@ -76,7 +77,7 @@ redis`, then 60s later `Knex: Timeout acquiring a connection / 53300` — even
 though Postgres had free slots. The working `mente-backend` config registers the
 three **Redis modules**; our repo's `medusa-config.ts` did not, so it used the
 **in-memory workflow engine**, which holds DB connections at boot and starves the
-pool. Fix `8e0becf` adds the Redis modules. The last rebuild ran *before* this
+pool. Fix `8e0becf` adds the Redis modules. The last rebuild ran _before_ this
 commit landed (a 4-min SSH timeout cut the `git reset` short), so the server build
 still lacks it.
 
