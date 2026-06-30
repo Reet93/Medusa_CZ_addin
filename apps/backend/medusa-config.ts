@@ -2,6 +2,8 @@ import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
+const REDIS_URL = process.env.REDIS_URL
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -10,6 +12,8 @@ module.exports = defineConfig({
     databaseDriverOptions: {
       pool: { min: 0, max: 5 },
     },
+    // Use Redis for sessions when available (falls back to in-memory otherwise).
+    ...(REDIS_URL ? { redisUrl: REDIS_URL } : {}),
     http: {
       storeCors: process.env.STORE_CORS!,
       adminCors: process.env.ADMIN_CORS!,
@@ -41,5 +45,25 @@ module.exports = defineConfig({
         ],
       },
     },
+    // Redis-backed cache, event bus, and workflow engine. Without these, Medusa
+    // falls back to the in-memory workflow engine, which holds DB connections at
+    // boot and can starve a small connection pool. Only registered when REDIS_URL
+    // is set (local dev without Redis keeps the in-memory defaults).
+    ...(REDIS_URL
+      ? [
+          {
+            resolve: "@medusajs/medusa/cache-redis",
+            options: { redisUrl: REDIS_URL },
+          },
+          {
+            resolve: "@medusajs/medusa/event-bus-redis",
+            options: { redisUrl: REDIS_URL },
+          },
+          {
+            resolve: "@medusajs/medusa/workflow-engine-redis",
+            options: { redis: { redisUrl: REDIS_URL } },
+          },
+        ]
+      : []),
   ],
 })
