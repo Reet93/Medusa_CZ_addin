@@ -266,3 +266,32 @@ secrets). Fine for now; add off-site + encryption before real customer data (see
 - **`connect-server.bat`** rewritten: LAN-first, Tailscale-fallback.
 - Sudo for `reet`: NOPASSWD `systemctl` + scoped `cp` for the 2 medusa units.
 - **Next:** `#6` — implement the 7 stubbed `payment-comgate` provider methods (TDD).
+
+## 13. Containerized demo deploy — migration-hang gotcha (DO NOT re-debug)
+
+**Symptom:** building the demo backend in a Docker image from the pnpm monorepo,
+then running `medusa db:migrate` in the container, **hangs at "Running
+migrations…"** — event loop goes idle (`ep_poll`), one idle Postgres socket,
+i.e. it awaits a promise that never resolves. Migrations never start.
+
+**Ruled out** (don't waste time re-checking): our plugin/config (a minimal
+config hangs too), worker mode, `NODE_ENV`, advisory locks, Redis (real reachable
+Redis still hangs), and the Medusa version (2.17.0 hangs the same as 2.15.5).
+
+**Root-cause hypothesis:** the container runs from `apps/backend` with the pnpm
+**workspace symlinks** present (the `.pnpm` store + `workspace:*` links). Medusa's
+migration-file scan walks the symlinked module graph and loops/stalls. Production
+does **not** hit this because it runs from a **flat, self-contained
+`.medusa/server`** (real files, no workspace symlinks).
+
+**The fix (prod pattern):** don't run Medusa from the workspace tree in the
+container. Run `medusa build`, then run from `.medusa/server` with its **own flat
+`npm install`** (no symlinks). Caveat: any workspace plugin (e.g.
+`@medusa-cz/payment-comgate`, `@medusa-cz/fulfillment-packeta`) must physically
+exist in `.medusa/server/node_modules` — bundle/copy the built package or install
+its tarball; a `workspace:*` symlink will reintroduce the hang. Alternative: run
+the demo backend on the host like production, no container.
+
+> The in-progress Dockerfile + environment-specific deploy notes live on the
+> `m1-comgate-deploy` branch (kept intentionally); only this reusable lesson is
+> tracked here.
