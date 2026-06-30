@@ -87,7 +87,9 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
           : { id: normalized.pickup_point_id }
       const { isValid, errors } = await validatePoint({ apiKey: this.options_.apiKey, point })
       if (!isValid) {
-        throw new Error(`Packeta: invalid pickup point — ${errors.join(", ") || "validation failed"}`)
+        throw new Error(
+          `Packeta: invalid pickup point — ${errors.join(", ") || "validation failed"}`
+        )
       }
     }
     return normalized
@@ -103,7 +105,8 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     const isExternal = (data.pickup_point_type as string) === "external"
     const weight =
       items.reduce(
-        (sum, it) => sum + (Number(it?.variant?.weight ?? it?.weight ?? 0) || 0) * (it?.quantity ?? 1),
+        (sum, it) =>
+          sum + (Number(it?.variant?.weight ?? it?.weight ?? 0) || 0) * (it?.quantity ?? 1),
         0
       ) || 0
     const cod = data.cod ? Number(data.cod_amount ?? order?.item_total ?? 0) : undefined
@@ -117,9 +120,7 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
       addressId: isExternal
         ? String(data.carrier_id ?? data.pickup_point_id)
         : String(data.pickup_point_id),
-      carrierPickupPoint: isExternal
-        ? String(data.carrier_pickup_point_id ?? "")
-        : undefined,
+      carrierPickupPoint: isExternal ? String(data.carrier_pickup_point_id ?? "") : undefined,
       value: Number(order?.item_total ?? 0),
       weight,
       ...(cod != null ? { cod, currency: this.options_.defaultCurrency ?? "CZK" } : {}),
@@ -172,7 +173,10 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     return this.labelDocuments(data)
   }
 
-  async retrieveDocuments(fulfillmentData: Record<string, unknown>, _documentType: string): Promise<any> {
+  async retrieveDocuments(
+    fulfillmentData: Record<string, unknown>,
+    _documentType: string
+  ): Promise<any> {
     return this.labelDocuments(fulfillmentData)
   }
 }
