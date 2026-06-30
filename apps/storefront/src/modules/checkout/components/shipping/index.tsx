@@ -6,14 +6,25 @@ import { convertToLocale } from "@lib/util/money"
 import { CheckCircleSolid, Loader } from "@medusajs/icons"
 import { HttpTypes } from "@medusajs/types"
 import ErrorMessage from "@modules/checkout/components/error-message"
+import PacketaPickupPoint from "@modules/checkout/components/packeta-pickup-point"
 import Divider from "@modules/common/components/divider"
 import MedusaRadio from "@modules/common/components/radio"
 import { Button, clx, Heading, Text } from "@modules/common/components/ui"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
+import type { PacketaPoint } from "@lib/packeta"
 
 const PICKUP_OPTION_ON = "__PICKUP_ON"
 const PICKUP_OPTION_OFF = "__PICKUP_OFF"
+
+// Identify the Packeta calculated shipping option. The fulfillment provider id
+// is stored as `{identifier}_{id}` (e.g. "packeta_packeta"); some seeds use the
+// container-key form "fp_packeta_packeta". The M2a seed also tags the option
+// with `data.id === "packeta-pickup"`, which is the most reliable marker.
+const isPacketaOption = (opt: HttpTypes.StoreCartShippingOption): boolean =>
+  opt.provider_id === "packeta_packeta" ||
+  opt.provider_id === "fp_packeta_packeta" ||
+  (opt.data as { id?: string } | null)?.id === "packeta-pickup"
 
 type ShippingProps = {
   cart: HttpTypes.StoreCart
@@ -61,6 +72,15 @@ const Shipping: React.FC<ShippingProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [shippingMethodId, setShippingMethodId] = useState<string | null>(
     cart.shipping_methods?.at(-1)?.shipping_option_id || null
+  )
+  const [packetaPoint, setPacketaPoint] = useState<PacketaPoint | null>(
+    (cart.shipping_methods?.at(-1)?.data as { pickup_point_id?: string; pickup_point_name?: string } | null)
+      ?.pickup_point_id
+      ? {
+          id: String((cart.shipping_methods!.at(-1)!.data as { pickup_point_id: string }).pickup_point_id),
+          name: (cart.shipping_methods!.at(-1)!.data as { pickup_point_name?: string }).pickup_point_name,
+        }
+      : null
   )
 
   const searchParams = useSearchParams()
@@ -136,6 +156,9 @@ const Shipping: React.FC<ShippingProps> = ({
       return id
     })
 
+    // Selecting a different option invalidates any previously chosen Packeta point.
+    setPacketaPoint(null)
+
     await setShippingMethod({ cartId: cart.id, shippingMethodId: id })
       .catch((err) => {
         setShippingMethodId(currentId)
@@ -145,6 +168,39 @@ const Shipping: React.FC<ShippingProps> = ({
       .finally(() => {
         setIsLoading(false)
       })
+  }
+
+  const selectedOption = availableShippingMethods?.find(
+    (o) => o.id === shippingMethodId
+  )
+  const isPacketaSelected = !!selectedOption && isPacketaOption(selectedOption)
+
+  // Carry the chosen pickup point into the cart shipping-method `data` using the
+  // exact keys the M2a backend provider's validateFulfillmentData reads.
+  const onPacketaSelected = async (point: PacketaPoint) => {
+    if (!shippingMethodId) {
+      return
+    }
+    setError(null)
+    setIsLoading(true)
+    try {
+      await setShippingMethod({
+        cartId: cart.id,
+        shippingMethodId,
+        data: {
+          pickup_point_id: String(point.id),
+          pickup_point_name: point.name,
+          pickup_point_type: point.pickupPointType ?? "internal",
+          carrier_id: point.carrierId,
+          carrier_pickup_point_id: point.carrierPickupPointId,
+        },
+      })
+      setPacketaPoint(point)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -366,6 +422,25 @@ const Shipping: React.FC<ShippingProps> = ({
             </div>
           )}
 
+          {isPacketaSelected && (
+            <div className="grid" data-testid="packeta-delivery-section">
+              <div className="flex flex-col">
+                <span className="font-medium txt-medium text-ui-fg-base">
+                  Pickup point
+                </span>
+                <span className="mb-4 text-ui-fg-muted txt-medium">
+                  Choose a Packeta pickup point for your order
+                </span>
+              </div>
+              <div className="pb-8 md:pt-0 pt-2">
+                <PacketaPickupPoint
+                  value={packetaPoint}
+                  onChange={onPacketaSelected}
+                />
+              </div>
+            </div>
+          )}
+
           <div>
             <ErrorMessage
               error={error}
@@ -376,7 +451,10 @@ const Shipping: React.FC<ShippingProps> = ({
               className="mt"
               onClick={handleSubmit}
               isLoading={isLoading}
-              disabled={!cart.shipping_methods?.[0]}
+              disabled={
+                !cart.shipping_methods?.[0] ||
+                (isPacketaSelected && !packetaPoint)
+              }
               data-testid="submit-delivery-option-button"
             >
               Continue to payment
