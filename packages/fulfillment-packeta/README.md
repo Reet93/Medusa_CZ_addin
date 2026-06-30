@@ -85,6 +85,22 @@ npx medusa exec ./src/scripts/seed-packeta.ts
 cd apps/storefront && pnpm dev
 ```
 
+### ⚠️ Safe testing — there is NO sandbox
+
+Packeta has **no test environment**; you test against the real API with your real
+key + password. That is safe **as long as you stay in the create → cancel zone**:
+
+- `createPacket` (fired by **Create fulfillment**) only **registers** a packet —
+  nothing ships and **nothing is billed**. It is fully reversible with
+  `cancelPacket` (the **Cancel fulfillment** flow).
+- The **point of no return is close-batch (`createShipment`)** — it hands the
+  batch to Packeta. **Do NOT close-batch test packets**, and never physically
+  drop off a test parcel.
+- Isolate test packets with a dedicated **test sender** in `PACKETA_ESHOP`, and
+  **`cancelPacket` every test packet** when finished.
+
+In short: exercise the full lifecycle **except** close-batch + physical handover.
+
 ### Drive the round-trip (browser)
 
 1. Add a product to the CZK-region cart → checkout.
@@ -94,8 +110,13 @@ cd apps/storefront && pnpm dev
 4. Complete the order.
 5. In admin: a fulfillment exists → **Create fulfillment** → packet created
    (check the order fulfillment `data.packet_id`). Print the label (fulfillment
-   documents). Refresh tracking. Close the batch.
-6. Repeat with a COD order and an external-carrier point. Cancel the test
-   packet(s) to clean up.
+   documents). Refresh tracking. **Stop here for test packets — do _not_ close
+   the batch** (see the safety note above).
+6. Repeat with a COD order and an external-carrier point.
+7. **Clean up: Cancel fulfillment** on every test packet (`cancelPacket`) so no
+   test records linger in your account.
+
+> Close-batch (`POST /admin/packeta/close-batch`) is exercised **only** against
+> real shipments you actually intend to hand over — never against test packets.
 
 > The widget runs in an isolated iframe and uses the public `apiKey` only.
