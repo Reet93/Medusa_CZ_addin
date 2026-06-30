@@ -4,6 +4,9 @@ const createPacket = vi.fn()
 const cancelPacket = vi.fn()
 const packetLabelPdf = vi.fn()
 const createPacketClaim = vi.fn()
+const packetStatus = vi.fn()
+const packetTracking = vi.fn()
+const createShipment = vi.fn()
 vi.mock("../../../core/packeta-client", () => ({
   PacketaError: class extends Error {},
   PacketaClient: vi.fn().mockImplementation(() => ({
@@ -11,6 +14,9 @@ vi.mock("../../../core/packeta-client", () => ({
     cancelPacket,
     packetLabelPdf,
     createPacketClaim,
+    packetStatus,
+    packetTracking,
+    createShipment,
   })),
 }))
 const validatePoint = vi.hoisted(() => vi.fn())
@@ -207,6 +213,29 @@ describe("createReturnFulfillment", () => {
     } as never)
     expect(createPacketClaim).toHaveBeenCalled()
     expect(res.data).toMatchObject({ return_packet_id: "77", return_barcode: "Z77" })
+  })
+})
+
+describe("getTracking", () => {
+  it("returns status + tracking for a packet using the server-side configured client", async () => {
+    packetStatus.mockResolvedValue({ statusCode: "1", statusText: "received" })
+    packetTracking.mockResolvedValue([{ statusCode: "1", statusText: "received" }])
+    const res = await makeProvider().getTracking("900719925474099")
+    expect(packetStatus).toHaveBeenCalledWith("900719925474099")
+    expect(packetTracking).toHaveBeenCalledWith("900719925474099")
+    expect(res).toEqual({
+      status: { statusCode: "1", statusText: "received" },
+      tracking: [{ statusCode: "1", statusText: "received" }],
+    })
+  })
+})
+
+describe("closeBatch", () => {
+  it("creates a shipment for the given packet ids via the configured client", async () => {
+    createShipment.mockResolvedValue({ id: "ship_1", barcode: "Zship_1" })
+    const res = await makeProvider().closeBatch(["1", "2"])
+    expect(createShipment).toHaveBeenCalledWith(["1", "2"])
+    expect(res).toEqual({ shipment: { id: "ship_1", barcode: "Zship_1" } })
   })
 })
 

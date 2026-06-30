@@ -133,6 +133,31 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     }
   }
 
+  /**
+   * Status + tracking history for a packet, using the server-side configured
+   * credentials. Backs the admin tracking route so the API password is never
+   * accepted from (or exposed in) the request.
+   */
+  async getTracking(packetId: string): Promise<{
+    status: { statusCode: string; statusText: string }
+    tracking: Array<{ statusCode: string; statusText: string; dateTime?: string }>
+  }> {
+    const [status, tracking] = await Promise.all([
+      this.client_.packetStatus(packetId),
+      this.client_.packetTracking(packetId),
+    ])
+    return { status, tracking }
+  }
+
+  /**
+   * Close a batch (create a shipment) for the given packet ids, using the
+   * server-side configured credentials. Backs the admin close-batch route.
+   */
+  async closeBatch(packetIds: string[]): Promise<{ shipment: { id: string; barcode: string } }> {
+    const shipment = await this.client_.createShipment(packetIds.map(String))
+    return { shipment }
+  }
+
   async cancelFulfillment(data: Record<string, unknown>): Promise<void> {
     const packetId = data.packet_id as string | undefined
     if (packetId) {
