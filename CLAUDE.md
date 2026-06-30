@@ -78,6 +78,7 @@ local Postgres by default. Connect via the local helper script:
 Full server operations — services (systemd server/worker split), paths, network,
 backups, and the Coolify demo-deploy state — are documented in **`SERVER-OPS.md`**.
 
-> ⚠️ The server hosts the **production** store. Do **not** run test/seed/fulfillment
-> experiments (e.g. Packeta round-trips) against the production backend — use a
-> dedicated demo/staging backend + database. See `SERVER-OPS.md` for which is which.
+> The server backend is currently **test-only** — safe for seed/fulfillment/Packeta
+> round-trips. There is no live production store yet (planned later). **When
+> production does go live, revisit this:** never run test/seed/fulfillment
+> experiments against a production backend — use a dedicated demo/staging instance.
