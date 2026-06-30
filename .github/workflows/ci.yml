@@ -51,5 +51,6 @@ jobs:
     # NOTE (M0): the storefront (`@medusa-cz/demo-storefront`) is excluded from the
     # gated `build`/`lint` scripts — its Next.js build needs a live backend + a
     # publishable key, so it runs in its deploy context, not in offline CI.
+    # Its `typecheck` (tsc --noEmit) IS gated here (M2b) — it needs no backend.
     # NOTE (M1): integration tests will need a Postgres service here; add a
     # `services.postgres` block + DATABASE_URL when the first plugin gains tests.
