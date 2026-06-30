@@ -30,9 +30,10 @@ export default async function seedPacketa({ container }: ExecArgs) {
       name: "Packeta pickup point",
       service_zone_id: set.service_zones[0].id,
       shipping_profile_id: (await fulfillment.listShippingProfiles({}))[0]?.id,
-      // TODO(Task 13/14): confirm the composed provider id against the running module.
-      // Repo's manual seed uses "manual_manual" ({identifier}_{id}), so this may need to be "packeta_packeta".
-      provider_id: "fp_packeta_packeta",
+      // Provider id is `{identifier}_{id}` = "packeta_packeta" (the service's static
+      // identifier "packeta" + the medusa-config registration id "packeta").
+      // Confirmed against the live fulfillment_provider table on the server.
+      provider_id: "packeta_packeta",
       price_type: "calculated",
       type: { label: "Packeta", description: "Pickup point", code: "packeta" },
       data: { id: "packeta-pickup" },
