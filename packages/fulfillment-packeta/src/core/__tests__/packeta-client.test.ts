@@ -157,20 +157,14 @@ describe("PacketaClient label/shipment/returns", () => {
   })
 
   it("senderGetReturnRouting wraps a single <string> into an array", async () => {
-    mockFetchOnce(
-      200,
-      `<response status="ok"><result><string>only</string></result></response>`
-    )
+    mockFetchOnce(200, `<response status="ok"><result><string>only</string></result></response>`)
     const res = await new PacketaClient(opts).senderGetReturnRouting("my-sender")
     expect(res).toEqual(["only"])
   })
 
   it("packetLabelPdf reads the base64 from a #text node", async () => {
     // A <result> with surrounding whitespace causes fast-xml-parser to emit { "#text": "..." }
-    mockFetchOnce(
-      200,
-      `<response status="ok"><result> JVBERi0xLjQK </result></response>`
-    )
+    mockFetchOnce(200, `<response status="ok"><result> JVBERi0xLjQK </result></response>`)
     const b64 = await new PacketaClient(opts).packetLabelPdf("1", "A6 on A4")
     expect(b64.trim()).toBe("JVBERi0xLjQK")
   })
@@ -180,8 +174,8 @@ describe("PacketaClient label/shipment/returns", () => {
       200,
       `<response status="ok"><result><unexpected>data</unexpected></result></response>`
     )
-    await expect(
-      new PacketaClient(opts).packetLabelPdf("1", "A6 on A4")
-    ).rejects.toMatchObject({ fault: "LabelParseError" })
+    await expect(new PacketaClient(opts).packetLabelPdf("1", "A6 on A4")).rejects.toMatchObject({
+      fault: "LabelParseError",
+    })
   })
 })

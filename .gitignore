@@ -17,6 +17,9 @@ coverage/
 # Playwright MCP debug artifacts (local only)
 .playwright-mcp/
 
+# Superpowers SDD scratch state (local only) — never commit
+.superpowers/
+
 # Env files — never commit real env; templates/examples are tracked
 .env
 .env.*
