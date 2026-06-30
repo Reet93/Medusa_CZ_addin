@@ -1,17 +1,16 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { PacketaClient } from "../../../../../core/packeta-client.js"
+import type PacketaProviderService from "../../../../../providers/packeta/service.js"
+
+// Container key for the registered Packeta fulfillment provider:
+// `fp_${identifier}_${id}` where identifier="packeta" (service) and id="packeta"
+// (the documented registration id in medusa-config). The provider holds the
+// server-side configured credentials — the API password is never taken from the
+// request.
+const PACKETA_PROVIDER_KEY = "fp_packeta_packeta"
 
 export async function GET(req: MedusaRequest, res: MedusaResponse): Promise<void> {
   const packetId = req.params.packetId!
-  const apiPassword = (req.query.apiPassword as string) || ""
-  if (!apiPassword) {
-    res.status(400).json({ message: "apiPassword query param is required" })
-    return
-  }
-  const client = new PacketaClient({ apiPassword })
-  const [status, tracking] = await Promise.all([
-    client.packetStatus(packetId),
-    client.packetTracking(packetId),
-  ])
+  const provider = req.scope.resolve<PacketaProviderService>(PACKETA_PROVIDER_KEY)
+  const { status, tracking } = await provider.getTracking(packetId)
   res.json({ status, tracking })
 }
