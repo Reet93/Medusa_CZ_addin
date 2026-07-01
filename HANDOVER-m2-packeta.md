@@ -123,11 +123,22 @@ fulfillment" (→ live `createPacket`) once the Packeta account is approved.
 
 ### Still TODO for a full browser e2e
 
-- **Storefront:** not deployed. User noted there is no storefront defined yet, so
-  this is parked. If/when wanted: build `apps/storefront` on the server, run via
-  systemd, env: backend URL, publishable key, `NEXT_PUBLIC_PACKETA_API_KEY`
-  (public widget key — needed for the widget to open), default region = CZK, set
-  `STORE_CORS`.
+- **Storefront:** decided to **use the basic Medusa starter** (`apps/storefront`,
+  `@medusa-cz/demo-storefront`) for now; a custom design is deferred. Configured
+  for **local dev against the deployed server backend** (2026-07-01) —
+  `apps/storefront/.env.local` (gitignored):
+  - `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` = server backend's Default key (`pk_927d…`).
+  - `NEXT_PUBLIC_MEDUSA_BACKEND_URL=http://192.168.0.156:9000` (LAN; backend is
+    reachable, `health=200`). `STORE_CORS` already allows `http://localhost:8000`.
+  - `NEXT_PUBLIC_DEFAULT_REGION=cz` (Czechia/CZK — the seeded Packeta region;
+    the starter's `dk` maps to Europe/EUR and would hide Packeta).
+  - `NEXT_PUBLIC_PACKETA_API_KEY` = **public** widget key (`77ad…`) — opens the
+    picker + validates a point, **cannot** create a packet. The packet-triggering
+    secret stays disabled server-side.
+  - Verified: `pnpm dev` → `http://localhost:8000/cz` renders 200, pulls
+    regions/collections/categories from the backend; 4 demo products present.
+  - **Not yet server-deployed** (runs locally for now). Server deploy (build +
+    systemd + real domain/CORS) is a later step if a hosted demo is wanted.
 - ~~Delete the dead Coolify demo backend.~~ **DONE (2026-07-01):** removed the demo
   app (`i8s78go8…`), its Postgres (`r12vnn8…`, DB `medusa_demo`) + volume, and its
   Redis (`onwdnyjnwg38…`) + volume. Live infra (`medusa-postgres-1`,
