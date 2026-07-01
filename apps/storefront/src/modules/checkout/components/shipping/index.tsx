@@ -150,7 +150,6 @@ const Shipping: React.FC<ShippingProps> = ({
     }
 
     let currentId: string | null = null
-    setIsLoading(true)
     setShippingMethodId((prev) => {
       currentId = prev
       return id
@@ -159,6 +158,17 @@ const Shipping: React.FC<ShippingProps> = ({
     // Selecting a different option invalidates any previously chosen Packeta point.
     setPacketaPoint(null)
 
+    // Packeta is a pickup-point provider: its validateFulfillmentData rejects a
+    // shipping method that has no `pickup_point_id`. Selecting the option must
+    // therefore NOT persist the method yet — we reveal the pickup-point widget
+    // and defer setShippingMethod to onPacketaSelected (once a point is chosen).
+    // Persisting here would 500 on every selection (the earlier race bug).
+    const chosen = availableShippingMethods?.find((o) => o.id === id)
+    if (chosen && isPacketaOption(chosen)) {
+      return
+    }
+
+    setIsLoading(true)
     await setShippingMethod({ cartId: cart.id, shippingMethodId: id })
       .catch((err) => {
         setShippingMethodId(currentId)
