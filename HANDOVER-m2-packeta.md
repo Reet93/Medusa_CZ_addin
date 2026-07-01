@@ -137,8 +137,36 @@ fulfillment" (→ live `createPacket`) once the Packeta account is approved.
     secret stays disabled server-side.
   - Verified: `pnpm dev` → `http://localhost:8000/cz` renders 200, pulls
     regions/collections/categories from the backend; 4 demo products present.
+  - **Full Packeta selection flow verified end-to-end (2026-07-01, Playwright):**
+    add to cart → checkout → CZ address → **Packeta pickup point** option shows
+    (79 Kč) → widget opens (real Zásilkovna map, public key) → pick a point
+    (`Z-BOX Golčův Jeníkov`) → lands in cart shipping `data` → **Continue to
+    payment** enables. Zero 500s. No packet created (secret disabled).
   - **Not yet server-deployed** (runs locally for now). Server deploy (build +
     systemd + real domain/CORS) is a later step if a hosted demo is wanted.
+
+### Checkout blockers found & fixed getting the flow working (2026-07-01)
+
+Three real bugs surfaced while first exercising checkout. The storefront one is a
+committed code fix; the two backend ones were applied **directly to the test DB**
+and are **not yet in the seed** — fold them into `seed-packeta.ts` so a fresh
+DB/re-seed doesn't reintroduce them:
+
+- **Storefront (fixed in code, `e9873c9`):** selecting the Packeta option called
+  `setShippingMethod` with no `pickup_point_id` → provider `validateFulfillmentData`
+  threw → delivery step 500'd on every click (only worked if you raced the widget).
+  Fix: defer persisting the Packeta method until a point is chosen (`onPacketaSelected`).
+- **Backend seed gap A — no CZK prices (DB-only):** demo products had EUR/USD
+  prices only, so the CZK region showed everything as "out of stock"
+  (`calculated_price: null`). Added a CZK price (EUR×25, e.g. €10→250 Kč) to all
+  20 variant price sets. **TODO:** add CZK to the seed's price sets.
+- **Backend seed gap B — Packeta fulfillment not linked to the location (DB-only):**
+  the Packeta option's fulfillment set (`packeta-set`) and provider
+  (`packeta_packeta`) were never linked to the stock location that serves the
+  Default Sales Channel, so **no** shipping option appeared at checkout. Added
+  `location_fulfillment_set` + `location_fulfillment_provider` rows for
+  `European Warehouse`. **TODO:** have `seed-packeta.ts` link the packeta set +
+  provider to the sales-channel's stock location.
 - ~~Delete the dead Coolify demo backend.~~ **DONE (2026-07-01):** removed the demo
   app (`i8s78go8…`), its Postgres (`r12vnn8…`, DB `medusa_demo`) + volume, and its
   Redis (`onwdnyjnwg38…`) + volume. Live infra (`medusa-postgres-1`,
