@@ -123,13 +123,19 @@ fulfillment" (→ live `createPacket`) once the Packeta account is approved.
 
 ### Still TODO for a full browser e2e
 
-- **Storefront not deployed** (the "never finished" piece). Plan: build
-  `apps/storefront` on the server, run via systemd, env: backend URL, the existing
-  publishable key, `NEXT_PUBLIC_PACKETA_API_KEY`, default region = CZK; set
-  `STORE_CORS`. (User chose bare-metal storefront earlier.)
-- **Delete the dead Coolify demo backend.**
-- After Packeta approval (~3 days): re-run Path A, then the full admin
-  create-fulfillment → label → tracking → cancel round-trip.
+- **Storefront:** not deployed. User noted there is no storefront defined yet, so
+  this is parked. If/when wanted: build `apps/storefront` on the server, run via
+  systemd, env: backend URL, publishable key, `NEXT_PUBLIC_PACKETA_API_KEY`
+  (public widget key — needed for the widget to open), default region = CZK, set
+  `STORE_CORS`.
+- ~~Delete the dead Coolify demo backend.~~ **DONE (2026-07-01):** removed the demo
+  app (`i8s78go8…`), its Postgres (`r12vnn8…`, DB `medusa_demo`) + volume, and its
+  Redis (`onwdnyjnwg38…`) + volume. Live infra (`medusa-postgres-1`,
+  `medusa-redis-1`) untouched. A stale resource entry may still show in the Coolify
+  **UI** — delete it there with one click to purge Coolify's own records.
+- After Packeta approval (~3 days): restore real creds (see "Go-live" above),
+  re-run Path A, then the full admin create-fulfillment → label → tracking →
+  cancel round-trip.
 
 ## Gotchas captured
 
