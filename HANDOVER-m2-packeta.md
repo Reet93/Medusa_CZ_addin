@@ -9,11 +9,17 @@ _Last updated: 2026-06-30. Branch: `master` (solo, no branches — see CLAUDE.md
 - **Credentials are valid** (probed safely, no packets created). **Packeta account
   is NOT yet approved for posting parcels** (created today, ~3-day wait) — so live
   packet creation is blocked, but the **storefront selection flow is testable now**.
-- **Server deploy (Path B) is ~90% done but paused.** Root cause of the only
-  blocker was found and **fixed in the repo (commit `8e0becf`)** but **not yet
-  built/deployed on the server**. One rebuild away.
-- **Server is back to its original `mente-backend` (no Packeta), healthy.**
-  The Packeta backend is stopped → **Packeta API is not in use**.
+- **Server deploy (Path B) is DONE.** The Redis-modules fix (`8e0becf`) is built
+  and running on the box (HEAD `234b1ba`). Backend boots clean and holds
+  `health=200` (Redis cache/event-bus/workflow-engine all "established" in logs;
+  no more `53300` pool-timeout loop). `medusa.service` + `medusa-worker.service`
+  both active, pointed at `~/eshop`.
+- **Packeta is deployed but NEUTERED — cannot fire.** Per user request, the
+  server `.env` holds **dummy** `PACKETA_API_KEY` / `PACKETA_API_PASSWORD`
+  (`DISABLED_no_*_on_box`) + `PACKETA_VALIDATE_POINT=false`. The provider loads
+  (validateOptions only checks non-empty) but has no valid secret to call Packeta
+  with. Real keys live only in local `.env.local` — restore them to go live
+  (see "Go-live" below).
 - **Secret is not leaked** (0 commits, 0 tracked files; lives only in two
   gitignored `.env` files).
 
@@ -58,10 +64,21 @@ approved for posting parcels."` Re-run after approval to confirm
 
 - Connect: `C:\Users\sosno\OneDrive\Plocha\connect-server.bat` (SSH `reet`,
   LAN `192.168.0.156` → Tailscale fallback). Node 20 via nvm; pnpm 9.15.0 enabled.
-- **Running now:** original `medusa.service` + `medusa-worker.service` →
-  `~/medusa/mente-backend/.../​.medusa/server` (vanilla, no Packeta), `health=200`.
-- **Paused eshop deploy:** fresh clone at `~/eshop` (built), `.env` set with
-  `PACKETA_*` + `DATABASE_URL` (db `medusa-mente-backend`) + `REDIS_URL`.
+- **Running now (as of 2026-07-01):** `medusa.service` + `medusa-worker.service` →
+  `~/eshop/apps/backend/.medusa/server` (**eshop build, HEAD `234b1ba`**),
+  `health=200`, Redis modules connected. Packeta provider loaded with **dummy
+  creds** (see TL;DR) → no live Packeta calls possible.
+- **mente-backend is stopped** (its `~/medusa/mente-backend/...` build is intact
+  and can be re-pointed via the same unit-swap if ever needed).
+- eshop `.env` (`~/eshop/apps/backend/.env`, copied into `.medusa/server/.env`):
+  `DATABASE_URL` (db `medusa-mente-backend`) + `REDIS_URL` + dummy `PACKETA_*`.
+  **Note:** `medusa build` wipes `.medusa/server`, so `.env` must be re-copied
+  into `.medusa/server/` after every rebuild.
+- **systemd units** are staged in `~/medusa-units/*.service` (now eshop-targeted,
+  `ExecStart` = the pnpm sh-shim with **no** `node` prefix). Install them with the
+  two exact NOPASSWD commands (a multi-file `cp` is NOT covered by sudoers):
+  `sudo -n /usr/bin/cp /home/reet/medusa-units/medusa.service /etc/systemd/system/medusa.service`
+  (and the `-worker` twin), then `sudo -n /usr/bin/systemctl daemon-reload`.
 - **DB `medusa-mente-backend` already seeded** (idempotent done):
   - region **Czechia / czk**; shipping option **"Packeta pickup point" |
     provider_id `packeta_packeta` | calculated**; provider `packeta_packeta` enabled.
@@ -81,26 +98,28 @@ pool. Fix `8e0becf` adds the Redis modules. The last rebuild ran _before_ this
 commit landed (a 4-min SSH timeout cut the `git reset` short), so the server build
 still lacks it.
 
-## Resume steps (deploy the fix → test the selection flow)
+## Go-live: restore real Packeta creds (do ONLY when ready + account approved)
 
-On the server (`~/eshop`), with `PATH` including node:
+The backend is already deployed and running; going live is just swapping the
+dummy creds back to the real ones and restarting. On the server:
 
 ```bash
-sudo systemctl stop medusa.service medusa-worker.service        # stop mente-backend
-cd ~/eshop && git fetch --depth 1 origin master && git reset --hard origin/master
-grep -c event-bus-redis apps/backend/medusa-config.ts            # expect 1 (redis present)
-cd apps/backend && npx medusa build                              # rebuild .medusa/server (~90s)
-# repoint systemd to eshop (sudo cp is scoped to ~/medusa-units/*.service):
-#   WorkingDirectory=/home/reet/eshop/apps/backend/.medusa/server
-#   ExecStart=/home/reet/eshop/apps/backend/node_modules/.bin/medusa start   (NO `node` prefix — pnpm bin is an sh shim)
-sudo systemctl daemon-reload && sudo systemctl start medusa.service          # server only first
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:9000/health        # want 200
+ENV=~/eshop/apps/backend/.env
+# Real values live in local C:\eshop\.env.local:
+#   PACKETA_API_KEY     (local .env.local: PACKETA_API_KEY)
+#   PACKETA_API_PASSWORD(local .env.local: PACKETA_API_SECRET)   # note name mapping
+sed -i -E "s|^PACKETA_API_KEY=.*|PACKETA_API_KEY=<real-key>|"        "$ENV"
+sed -i -E "s|^PACKETA_API_PASSWORD=.*|PACKETA_API_PASSWORD=<real-pw>|" "$ENV"
+sed -i -E "s|^PACKETA_VALIDATE_POINT=.*|PACKETA_VALIDATE_POINT=true|"  "$ENV"
+cp "$ENV" ~/eshop/apps/backend/.medusa/server/.env                   # build wipes this — re-copy
+sudo -n /usr/bin/systemctl restart medusa.service medusa-worker.service
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:9000/health # want 200
 ```
 
-Then test (no account approval needed): storefront → CZK cart → checkout →
-select **Packeta pickup point** → widget opens → pick a point → it lands in the
-cart shipping `data` (keys `pickup_point_*`) → **Continue** enables. Do **not**
-close-batch; admin "Create fulfillment" stays blocked until Packeta approves.
+Then the selection flow is fully live: storefront → CZK cart → checkout → select
+**Packeta pickup point** → widget opens → pick a point → lands in cart shipping
+`data` (`pickup_point_*`) → **Continue** enables. Only run admin "Create
+fulfillment" (→ live `createPacket`) once the Packeta account is approved.
 
 ### Still TODO for a full browser e2e
 
