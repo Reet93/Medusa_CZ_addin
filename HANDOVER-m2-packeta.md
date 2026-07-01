@@ -147,26 +147,25 @@ fulfillment" (→ live `createPacket`) once the Packeta account is approved.
 
 ### Checkout blockers found & fixed getting the flow working (2026-07-01)
 
-Three real bugs surfaced while first exercising checkout. The storefront one is a
-committed code fix; the two backend ones were applied **directly to the test DB**
-and are **not yet in the seed** — fold them into `seed-packeta.ts` so a fresh
-DB/re-seed doesn't reintroduce them:
+Three real bugs surfaced while first exercising checkout. All three are now fixed
+in code — the two backend ones are folded into `seed-packeta.ts` (`d5d5516`) so a
+fresh DB/re-seed produces a working Packeta checkout (verified by deleting the
+links + a price and re-running the seed; idempotent):
 
 - **Storefront (fixed in code, `e9873c9`):** selecting the Packeta option called
   `setShippingMethod` with no `pickup_point_id` → provider `validateFulfillmentData`
   threw → delivery step 500'd on every click (only worked if you raced the widget).
   Fix: defer persisting the Packeta method until a point is chosen (`onPacketaSelected`).
-- **Backend seed gap A — no CZK prices (DB-only):** demo products had EUR/USD
-  prices only, so the CZK region showed everything as "out of stock"
-  (`calculated_price: null`). Added a CZK price (EUR×25, e.g. €10→250 Kč) to all
-  20 variant price sets. **TODO:** add CZK to the seed's price sets.
-- **Backend seed gap B — Packeta fulfillment not linked to the location (DB-only):**
-  the Packeta option's fulfillment set (`packeta-set`) and provider
-  (`packeta_packeta`) were never linked to the stock location that serves the
-  Default Sales Channel, so **no** shipping option appeared at checkout. Added
-  `location_fulfillment_set` + `location_fulfillment_provider` rows for
-  `European Warehouse`. **TODO:** have `seed-packeta.ts` link the packeta set +
-  provider to the sales-channel's stock location.
+- **Backend seed gap A — no CZK prices (fixed in seed `d5d5516`):** demo products
+  had EUR/USD prices only, so the CZK region showed everything "out of stock"
+  (`calculated_price: null`). The seed now derives a CZK price (EUR×25, e.g.
+  €10→250 Kč) for every variant that lacks one via the Pricing module.
+- **Backend seed gap B — Packeta fulfillment not linked to the location (fixed in
+  seed `d5d5516`):** the Packeta fulfillment set (`packeta-set`) and provider
+  (`packeta_packeta`) were never linked to the stock location serving the Default
+  Sales Channel, so **no** shipping option appeared at checkout. The seed now
+  creates the `location_fulfillment_set` + `location_fulfillment_provider` links
+  (via the Link module) for every stock location.
 - ~~Delete the dead Coolify demo backend.~~ **DONE (2026-07-01):** removed the demo
   app (`i8s78go8…`), its Postgres (`r12vnn8…`, DB `medusa_demo`) + volume, and its
   Redis (`onwdnyjnwg38…`) + volume. Live infra (`medusa-postgres-1`,
