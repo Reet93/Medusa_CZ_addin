@@ -81,6 +81,35 @@ describe("canCalculate / calculatePrice", () => {
     )
     expect(res).toMatchObject({ calculated_amount: 109 })
   })
+
+  it("falls back to cz pricing when country_code is missing and defaultCurrency is CZK", async () => {
+    const res = await makeProvider({ ...options, defaultCurrency: "CZK" }).calculatePrice(
+      {} as never,
+      { cod: false } as never,
+      { items: [{ variant: { weight: 2 }, quantity: 2 }] } as never
+    )
+    expect(res).toMatchObject({ calculated_amount: 79 })
+  })
+
+  it("falls back to cz pricing when country_code is missing and defaultCurrency is unset", async () => {
+    const { defaultCurrency: _defaultCurrency, ...withoutCurrency } = options
+    const res = await makeProvider(withoutCurrency as PacketaOptions).calculatePrice(
+      {} as never,
+      { cod: false } as never,
+      { items: [{ variant: { weight: 2 }, quantity: 2 }] } as never
+    )
+    expect(res).toMatchObject({ calculated_amount: 79 })
+  })
+
+  it("throws when country_code is missing and defaultCurrency is a non-CZK currency", async () => {
+    await expect(
+      makeProvider({ ...options, defaultCurrency: "EUR" }).calculatePrice(
+        {} as never,
+        { cod: false } as never,
+        { items: [{ variant: { weight: 2 }, quantity: 2 }] } as never
+      )
+    ).rejects.toThrow(/cannot determine shipping country/i)
+  })
 })
 
 describe("validateFulfillmentData", () => {

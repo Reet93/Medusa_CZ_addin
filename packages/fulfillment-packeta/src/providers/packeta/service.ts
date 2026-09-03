@@ -42,9 +42,20 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     data: Record<string, unknown>,
     context: Record<string, unknown>
   ): Promise<{ calculated_amount: number; is_calculated_price_tax_inclusive: boolean }> {
-    const country =
-      ((context.shipping_address as Record<string, unknown> | undefined)?.country_code as string) ??
-      (this.options_.defaultCurrency === "CZK" ? "cz" : "cz")
+    const countryCode = (context.shipping_address as Record<string, unknown> | undefined)
+      ?.country_code as string | undefined
+    let country: string
+    if (countryCode) {
+      country = countryCode
+    } else if (!this.options_.defaultCurrency || this.options_.defaultCurrency === "CZK") {
+      // "CZK" (or unset, since "CZK" is the documented default) is the one
+      // unambiguous currency→country mapping for this provider's PriceTable.
+      country = "cz"
+    } else {
+      throw new Error(
+        'Packeta: cannot determine shipping country — set context.shipping_address.country_code, or configure defaultCurrency: "CZK"'
+      )
+    }
     const items = (context.items as Array<Record<string, any>> | undefined) ?? []
     const weight = items.reduce(
       (sum, it) =>
