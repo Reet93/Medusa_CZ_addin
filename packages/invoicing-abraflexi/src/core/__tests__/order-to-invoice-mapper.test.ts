@@ -38,7 +38,9 @@ describe("mapOrderToAbraFlexiInvoice", () => {
     ])
     expect(payload.issueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(payload.dueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-    expect(new Date(payload.dueDate).getTime()).toBeGreaterThan(new Date(payload.issueDate).getTime())
+    expect(new Date(payload.dueDate).getTime()).toBeGreaterThan(
+      new Date(payload.issueDate).getTime()
+    )
   })
 
   it("uses order id as the deterministic external code", () => {

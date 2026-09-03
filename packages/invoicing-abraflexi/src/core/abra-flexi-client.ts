@@ -89,7 +89,11 @@ export class AbraFlexiClient {
       throw new AbraFlexiApiError(res.status, message, retryable)
     }
     if (!result?.id) {
-      throw new AbraFlexiApiError(res.status, "Abra Flexi: create response missing result id", false)
+      throw new AbraFlexiApiError(
+        res.status,
+        "Abra Flexi: create response missing result id",
+        false
+      )
     }
     return { id: String(result.id), code: payload.externalCode }
   }

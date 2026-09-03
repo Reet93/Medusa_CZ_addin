@@ -42,14 +42,16 @@ describe("resolveOrderStepFn", () => {
 
   it("throws (no retry) when the payment has no linked order", async () => {
     const paymentModuleService = {
-      retrievePayment: vi.fn().mockResolvedValue({ id: "pay_1", payment_collection_id: "pay_col_1" }),
+      retrievePayment: vi
+        .fn()
+        .mockResolvedValue({ id: "pay_1", payment_collection_id: "pay_col_1" }),
     }
     const query = { graph: vi.fn().mockResolvedValue({ data: [] }) }
     const container = mockContainer({ payment: paymentModuleService, query })
 
-    await expect(resolveOrderStepFn({ paymentId: "pay_1" }, { container } as never)).rejects.toThrow(
-      /no order found/
-    )
+    await expect(
+      resolveOrderStepFn({ paymentId: "pay_1" }, { container } as never)
+    ).rejects.toThrow(/no order found/)
   })
 })
 
@@ -124,7 +126,11 @@ describe("persistInvoiceIdStepFn", () => {
     )
 
     expect(updateOrders).toHaveBeenCalledWith("ord_1", {
-      metadata: { existing: "keep-me", abra_flexi_invoice_id: "1", abra_flexi_invoice_code: "order-ord_1" },
+      metadata: {
+        existing: "keep-me",
+        abra_flexi_invoice_id: "1",
+        abra_flexi_invoice_code: "order-ord_1",
+      },
     })
   })
 })

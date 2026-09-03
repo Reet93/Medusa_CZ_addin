@@ -9,7 +9,12 @@ const run = baseUrl && company && username && password ? describe : describe.ski
 
 run("Abra Flexi sandbox (live)", () => {
   it("creates a test invoice and returns its id/code", async () => {
-    const client = new AbraFlexiClient({ baseUrl: baseUrl!, company: company!, username: username!, password: password! })
+    const client = new AbraFlexiClient({
+      baseUrl: baseUrl!,
+      company: company!,
+      username: username!,
+      password: password!,
+    })
 
     const result = await client.createInvoice({
       externalCode: `sandbox-test-${Date.now()}`,

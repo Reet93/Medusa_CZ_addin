@@ -125,19 +125,22 @@ export const createInvoiceInAbraFlexiWorkflow = createWorkflow(
       ({ resolved }) => resolved.order.metadata?.abra_flexi_invoice_id as string | undefined
     )
 
-    const newInvoice = when({ existingInvoiceId }, ({ existingInvoiceId }) => !existingInvoiceId).then(
-      () => {
-        const payload = mapOrderToPayloadStep(resolved)
-        const created = createInvoiceStep(payload)
-        return persistInvoiceIdStep({ order: resolved.order, invoice: created })
-      }
-    )
+    const newInvoice = when(
+      { existingInvoiceId },
+      ({ existingInvoiceId }) => !existingInvoiceId
+    ).then(() => {
+      const payload = mapOrderToPayloadStep(resolved)
+      const created = createInvoiceStep(payload)
+      return persistInvoiceIdStep({ order: resolved.order, invoice: created })
+    })
 
-    const result = transform({ resolved, existingInvoiceId, newInvoice }, ({ resolved, existingInvoiceId, newInvoice }) =>
-      newInvoice ?? {
-        id: existingInvoiceId as string,
-        code: resolved.order.metadata?.abra_flexi_invoice_code as string,
-      }
+    const result = transform(
+      { resolved, existingInvoiceId, newInvoice },
+      ({ resolved, existingInvoiceId, newInvoice }) =>
+        newInvoice ?? {
+          id: existingInvoiceId as string,
+          code: resolved.order.metadata?.abra_flexi_invoice_code as string,
+        }
     )
 
     return new WorkflowResponse(result)

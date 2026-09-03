@@ -39,6 +39,9 @@ importers:
       '@medusa-cz/fulfillment-packeta':
         specifier: workspace:*
         version: link:../../packages/fulfillment-packeta
+      '@medusa-cz/invoicing-abraflexi':
+        specifier: workspace:*
+        version: link:../../packages/invoicing-abraflexi
       '@medusa-cz/shared':
         specifier: workspace:*
         version: link:../../packages/shared

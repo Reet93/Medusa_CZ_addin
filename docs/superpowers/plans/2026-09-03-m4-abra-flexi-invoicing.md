@@ -327,7 +327,13 @@ const payload: AbraFlexiInvoicePayload = {
   currency: "CZK",
   issueDate: "2026-09-03",
   dueDate: "2026-09-17",
-  customer: { name: "Jan Novák", street: "Hlavní 1", city: "Praha", postalCode: "11000", countryCode: "CZ" },
+  customer: {
+    name: "Jan Novák",
+    street: "Hlavní 1",
+    city: "Praha",
+    postalCode: "11000",
+    countryCode: "CZ",
+  },
   lines: [{ name: "Tričko", quantity: 2, unitPrice: 299 }],
   vatPayer: false,
 }
@@ -386,7 +392,9 @@ describe("AbraFlexiClient.createInvoice", () => {
       ...payload,
       customer: { ...payload.customer, ico: "25063677", dic: "CZ25063677" },
     })
-    body = JSON.parse((globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[1]![1].body)
+    body = JSON.parse(
+      (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[1]![1].body
+    )
     expect(body.winstrom["faktura-vydana"].ic).toBe("25063677")
     expect(body.winstrom["faktura-vydana"].dic).toBe("CZ25063677")
   })
@@ -423,7 +431,9 @@ describe("AbraFlexiClient.createInvoice", () => {
   })
 
   it("throws a retryable AbraFlexiApiError on a 5xx response", async () => {
-    mockFetchOnce(500, { winstrom: { success: false, results: [{ id: "0", errors: [{ message: "boom" }] }] } })
+    mockFetchOnce(500, {
+      winstrom: { success: false, results: [{ id: "0", errors: [{ message: "boom" }] }] },
+    })
     await expect(new AbraFlexiClient(opts).createInvoice(payload)).rejects.toMatchObject({
       name: "AbraFlexiApiError",
       status: 500,
@@ -564,7 +574,11 @@ export class AbraFlexiClient {
       throw new AbraFlexiApiError(res.status, message, retryable)
     }
     if (!result?.id) {
-      throw new AbraFlexiApiError(res.status, "Abra Flexi: create response missing result id", false)
+      throw new AbraFlexiApiError(
+        res.status,
+        "Abra Flexi: create response missing result id",
+        false
+      )
     }
     return { id: String(result.id), code: payload.externalCode }
   }
@@ -647,7 +661,9 @@ describe("mapOrderToAbraFlexiInvoice", () => {
     ])
     expect(payload.issueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(payload.dueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-    expect(new Date(payload.dueDate).getTime()).toBeGreaterThan(new Date(payload.issueDate).getTime())
+    expect(new Date(payload.dueDate).getTime()).toBeGreaterThan(
+      new Date(payload.issueDate).getTime()
+    )
   })
 
   it("uses order id as the deterministic external code", () => {
@@ -969,7 +985,7 @@ API verified against the pinned `2.17.0` packages in `node_modules` (not assumed
 - `container.resolve(ContainerRegistrationKeys.QUERY).graph({ entity, fields, filters })` returns `Promise<{ data: T[] }>` — always an array (`@medusajs/types` `modules-sdk/remote-query.d.ts:15-18`).
 - `container.resolve(Modules.ORDER).updateOrders(orderId, { metadata })` returns `Promise<OrderDTO>` (`@medusajs/types` `order/service.d.ts:627`).
 - `StepResponse.permanentFailure(message)` throws Medusa's own `PermanentStepFailureError` internally (`@medusajs/workflows-sdk` `helpers/step-response.js:126-131`) — this is what makes the orchestrator skip remaining retries and fail the step immediately (`@medusajs/orchestration` `transaction-orchestrator.js:842-846`: `isPermanent` forces `maxRetries` to `0` for that failure). This is the correct, documented way to implement "4xx does not retry" (spec §4 step 4, §6) — no need to import `PermanentStepFailureError` directly.
-- `createStep({ name, maxRetries, retryInterval }, invokeFn)` — step-level retry config (`@medusajs/orchestration` `transaction/types.d.ts:36-48`); default `maxRetries` is `0` (no retry) if omitted, which is exactly what step 1 (data-integrity failure, no retry per spec §4 step 1) wants by *not* setting it.
+- `createStep({ name, maxRetries, retryInterval }, invokeFn)` — step-level retry config (`@medusajs/orchestration` `transaction/types.d.ts:36-48`); default `maxRetries` is `0` (no retry) if omitted, which is exactly what step 1 (data-integrity failure, no retry per spec §4 step 1) wants by _not_ setting it.
 - `when(values, condition).then(resolver)` — the documented way to conditionally skip steps in a workflow composer (`@medusajs/workflows-sdk` `when.d.ts`; used verbatim by Medusa's own `capturePaymentWorkflow`).
 
 Each step's core logic is exported as a plain named async function (`...StepFn`) and separately wrapped with `createStep`. `createStep`-wrapped functions can only run inside a real workflow execution, so this task's own unit tests call the `...StepFn` functions directly with a mocked `{ container }` — no `@medusajs/test-utils`/database needed for this level of test, matching the spec's ask ("idempotency guard, retry behavior, persisted metadata on success", not full end-to-end orchestration).
@@ -1021,14 +1037,16 @@ describe("resolveOrderStepFn", () => {
 
   it("throws (no retry) when the payment has no linked order", async () => {
     const paymentModuleService = {
-      retrievePayment: vi.fn().mockResolvedValue({ id: "pay_1", payment_collection_id: "pay_col_1" }),
+      retrievePayment: vi
+        .fn()
+        .mockResolvedValue({ id: "pay_1", payment_collection_id: "pay_col_1" }),
     }
     const query = { graph: vi.fn().mockResolvedValue({ data: [] }) }
     const container = mockContainer({ payment: paymentModuleService, query })
 
-    await expect(resolveOrderStepFn({ paymentId: "pay_1" }, { container } as never)).rejects.toThrow(
-      /no order found/
-    )
+    await expect(
+      resolveOrderStepFn({ paymentId: "pay_1" }, { container } as never)
+    ).rejects.toThrow(/no order found/)
   })
 })
 
@@ -1103,7 +1121,11 @@ describe("persistInvoiceIdStepFn", () => {
     )
 
     expect(updateOrders).toHaveBeenCalledWith("ord_1", {
-      metadata: { existing: "keep-me", abra_flexi_invoice_id: "1", abra_flexi_invoice_code: "order-ord_1" },
+      metadata: {
+        existing: "keep-me",
+        abra_flexi_invoice_id: "1",
+        abra_flexi_invoice_code: "order-ord_1",
+      },
     })
   })
 })
@@ -1244,19 +1266,22 @@ export const createInvoiceInAbraFlexiWorkflow = createWorkflow(
       ({ resolved }) => resolved.order.metadata?.abra_flexi_invoice_id as string | undefined
     )
 
-    const newInvoice = when({ existingInvoiceId }, ({ existingInvoiceId }) => !existingInvoiceId).then(
-      () => {
-        const payload = mapOrderToPayloadStep(resolved)
-        const created = createInvoiceStep(payload)
-        return persistInvoiceIdStep({ order: resolved.order, invoice: created })
-      }
-    )
+    const newInvoice = when(
+      { existingInvoiceId },
+      ({ existingInvoiceId }) => !existingInvoiceId
+    ).then(() => {
+      const payload = mapOrderToPayloadStep(resolved)
+      const created = createInvoiceStep(payload)
+      return persistInvoiceIdStep({ order: resolved.order, invoice: created })
+    })
 
-    const result = transform({ resolved, existingInvoiceId, newInvoice }, ({ resolved, existingInvoiceId, newInvoice }) =>
-      newInvoice ?? {
-        id: existingInvoiceId as string,
-        code: resolved.order.metadata?.abra_flexi_invoice_code as string,
-      }
+    const result = transform(
+      { resolved, existingInvoiceId, newInvoice },
+      ({ resolved, existingInvoiceId, newInvoice }) =>
+        newInvoice ?? {
+          id: existingInvoiceId as string,
+          code: resolved.order.metadata?.abra_flexi_invoice_code as string,
+        }
     )
 
     return new WorkflowResponse(result)
@@ -1328,7 +1353,9 @@ describe("payment-captured subscriber", () => {
 
   it("runs createInvoiceInAbraFlexiWorkflow with the payment id from the event", async () => {
     const run = vi.fn().mockResolvedValue({ result: { id: "1", code: "order-ord_1" } })
-    ;(createInvoiceInAbraFlexiWorkflow as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ run })
+    ;(createInvoiceInAbraFlexiWorkflow as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      run,
+    })
     const container = {} as never
 
     await abraFlexiPaymentCapturedHandler({
@@ -1411,7 +1438,12 @@ const password = process.env.ABRA_FLEXI_PASSWORD
 const run = baseUrl && company && username && password ? describe : describe.skip
 
 run("Abra Flexi sandbox (live)", () => {
-  const client = new AbraFlexiClient({ baseUrl: baseUrl!, company: company!, username: username!, password: password! })
+  const client = new AbraFlexiClient({
+    baseUrl: baseUrl!,
+    company: company!,
+    username: username!,
+    password: password!,
+  })
 
   it("creates a test invoice and returns its id/code", async () => {
     const result = await client.createInvoice({
@@ -1485,13 +1517,13 @@ modules: [
 
 ## Options
 
-| Option     | Env var                 | Required | Default | Notes                                                        |
-| ---------- | ------------------------ | -------- | ------- | -------------------------------------------------------------- |
-| `baseUrl`  | `ABRA_FLEXI_BASE_URL`    | yes      | —       | Cloud (`https://<company>.flexibee.eu`) or self-hosted server. |
-| `company`  | `ABRA_FLEXI_COMPANY`     | yes      | —       | Company/evidence slug in the API URL path.                     |
-| `username` | `ABRA_FLEXI_USERNAME`    | yes      | —       | HTTP Basic auth.                                                |
-| `password` | `ABRA_FLEXI_PASSWORD`    | yes      | —       | HTTP Basic auth.                                                |
-| `vatPayer` | `ABRA_FLEXI_VAT_PAYER`   | no       | `false` | Flip once the business registers as VAT-payer (plátce DPH).    |
+| Option     | Env var                | Required | Default | Notes                                                          |
+| ---------- | ---------------------- | -------- | ------- | -------------------------------------------------------------- |
+| `baseUrl`  | `ABRA_FLEXI_BASE_URL`  | yes      | —       | Cloud (`https://<company>.flexibee.eu`) or self-hosted server. |
+| `company`  | `ABRA_FLEXI_COMPANY`   | yes      | —       | Company/evidence slug in the API URL path.                     |
+| `username` | `ABRA_FLEXI_USERNAME`  | yes      | —       | HTTP Basic auth.                                               |
+| `password` | `ABRA_FLEXI_PASSWORD`  | yes      | —       | HTTP Basic auth.                                               |
+| `vatPayer` | `ABRA_FLEXI_VAT_PAYER` | no       | `false` | Flip once the business registers as VAT-payer (plátce DPH).    |
 
 ## What it does
 

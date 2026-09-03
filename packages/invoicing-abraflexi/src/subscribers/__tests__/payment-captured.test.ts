@@ -14,7 +14,9 @@ describe("payment-captured subscriber", () => {
 
   it("runs createInvoiceInAbraFlexiWorkflow with the payment id from the event", async () => {
     const run = vi.fn().mockResolvedValue({ result: { id: "1", code: "order-ord_1" } })
-    ;(createInvoiceInAbraFlexiWorkflow as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ run })
+    ;(createInvoiceInAbraFlexiWorkflow as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      run,
+    })
     const container = {} as never
 
     await abraFlexiPaymentCapturedHandler({

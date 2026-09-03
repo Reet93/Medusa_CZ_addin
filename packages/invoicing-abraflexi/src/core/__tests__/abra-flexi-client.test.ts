@@ -15,7 +15,13 @@ const payload: AbraFlexiInvoicePayload = {
   currency: "CZK",
   issueDate: "2026-09-03",
   dueDate: "2026-09-17",
-  customer: { name: "Jan Novák", street: "Hlavní 1", city: "Praha", postalCode: "11000", countryCode: "CZ" },
+  customer: {
+    name: "Jan Novák",
+    street: "Hlavní 1",
+    city: "Praha",
+    postalCode: "11000",
+    countryCode: "CZ",
+  },
   lines: [{ name: "Tričko", quantity: 2, unitPrice: 299 }],
   vatPayer: false,
 }
@@ -83,7 +89,9 @@ describe("AbraFlexiClient.createInvoice", () => {
       ...payload,
       customer: { ...payload.customer, ico: "25063677", dic: "CZ25063677" },
     })
-    body = JSON.parse((globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[1]![1].body)
+    body = JSON.parse(
+      (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[1]![1].body
+    )
     expect(body.winstrom["faktura-vydana"].ic).toBe("25063677")
     expect(body.winstrom["faktura-vydana"].dic).toBe("CZ25063677")
   })
@@ -120,7 +128,9 @@ describe("AbraFlexiClient.createInvoice", () => {
   })
 
   it("throws a retryable AbraFlexiApiError on a 5xx response", async () => {
-    mockFetchOnce(500, { winstrom: { success: false, results: [{ id: "0", errors: [{ message: "boom" }] }] } })
+    mockFetchOnce(500, {
+      winstrom: { success: false, results: [{ id: "0", errors: [{ message: "boom" }] }] },
+    })
     await expect(new AbraFlexiClient(opts).createInvoice(payload)).rejects.toMatchObject({
       name: "AbraFlexiApiError",
       status: 500,
