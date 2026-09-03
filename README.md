@@ -13,7 +13,7 @@ production-ready for the Czech market: payments, fulfillment, and invoicing.
 | `@medusa-cz/payment-comgate`     | Comgate payment provider                                                    | planned (M1) |
 | `@medusa-cz/fulfillment-packeta` | Packeta / Zásilkovna pickup-point fulfillment                               | planned (M2) |
 | `@medusa-cz/payment-gopay`       | GoPay payment provider                                                      | planned (M3) |
-| `@medusa-cz/invoicing-fakturoid` | Fakturoid invoicing (order → invoice)                                       | planned (M4) |
+| `@medusa-cz/invoicing-abraflexi` | Abra Flexi invoicing (order → invoice)                                      | in progress (M4) |
 
 ## Why
 
