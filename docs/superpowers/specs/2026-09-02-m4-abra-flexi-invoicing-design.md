@@ -28,6 +28,7 @@ pattern in this repo.
 outbox/scheduled-job pattern.
 
 Rejected alternatives:
+
 - **Direct call from the subscriber.** Simplest, matches the old skeleton's
   shape, but a transient Abra Flexi outage silently drops the invoice with
   nothing to retry or surface.
@@ -173,6 +174,7 @@ elsewhere in this repo.
 
 TDD per repo discipline (RED → GREEN → REFACTOR), matching the
 Comgate/Packeta suites:
+
 - `abra-flexi-client.test.ts` — mocked HTTP, auth header, success/error
   response shapes.
 - `order-to-invoice-mapper.test.ts` — VAT-payer / non-payer, with/without
