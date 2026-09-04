@@ -22,6 +22,12 @@ There is no Czech plugin ecosystem for Medusa 2.0 yet. These plugins are free.
 We build, host, and support complete Medusa eshops for Czech businesses —
 [get in touch](#).
 
+## Demo
+
+The sales demo (Medusa backend + storefront) that exercises these plugins end-to-end lives in
+a private companion repo (`mente-eshop`) — it consumes these packages from a sibling checkout,
+not npm, until the first `@medusa-cz/*` release.
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md). All commits require a DCO sign-off (`git commit -s`).

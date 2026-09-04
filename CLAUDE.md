@@ -4,18 +4,20 @@ Guidance for Claude Code when working in this repository.
 
 ## Project
 
-`medusa-cz` — an open-core monorepo of Medusa v2 plugins for the Czech market
-(payment, fulfillment, invoicing) plus a demo backend + storefront that doubles
-as the sales demo. Turborepo + pnpm workspaces; each package publishes to npm
-independently under the `@medusa-cz/*` scope.
+`medusa-cz` — an open-core repo of Medusa v2 plugins for the Czech market
+(payment, fulfillment, invoicing). Turborepo + pnpm workspaces; each package
+publishes to npm independently under the `@medusa-cz/*` scope.
 
 - `packages/payment-comgate` — Comgate payment provider
 - `packages/payment-gopay` — GoPay payment provider
 - `packages/fulfillment-packeta` — Packeta (Zásilkovna) fulfillment provider
 - `packages/invoicing-abraflexi` — Abra Flexi invoicing module
 - `packages/shared` — shared utilities
-- `apps/backend` — Medusa backend (demo + integration host)
-- `apps/storefront` — Next.js starter storefront (demo)
+
+The demo backend + storefront that exercise these plugins end-to-end (the sales demo), plus
+server-ops docs, live in a **private** companion repo, `mente-eshop` — not here. That repo
+consumes these packages via a sibling-checkout `file:` link (see its own `CLAUDE.md`) until
+the first real npm release, at which point it switches to a normal version dependency.
 
 ## Workflow — solo developer, NO feature branches
 
@@ -41,14 +43,19 @@ not open pull requests.** Commit work directly to `master` and push.
   way — match that.
 - Don't assume Medusa v2 provider base-class signatures from memory; they move
   between 2.x minors. Verify against the docs for the pinned version.
+- A package here (currently only `invoicing-abraflexi`) may depend on another package in this
+  repo (`@medusa-cz/shared`) — declare that as `file:../shared` (relative to the dependent
+  package), not `workspace:*`. `workspace:*` only resolves inside this repo's own pnpm
+  workspace and breaks for any external consumer that pulls the package in via a plain
+  `file:` link (e.g. `mente-eshop`'s sibling-checkout convention above).
 
 ## Commands (run from repo root)
 
 ```bash
 pnpm test            # turbo: run all package test suites (vitest)
 pnpm typecheck       # turbo: tsc --noEmit across packages
-pnpm lint            # turbo: eslint (storefront excluded)
-pnpm build           # turbo: build all packages (storefront excluded)
+pnpm lint            # turbo: eslint
+pnpm build           # turbo: build all packages
 pnpm format:check    # prettier check — CI gates on this
 pnpm format          # prettier --write to fix formatting
 ```
@@ -59,26 +66,8 @@ opt-in live suites, which are skipped unless their env credentials are set).
 ## CI
 
 `.github/workflows/ci.yml` runs on push to `master` (and on PRs):
-`format:check → build → typecheck → lint → test`. The storefront is excluded
-from the gated `build`/`lint` (its Next.js build needs a live backend + key).
-Before pushing, run the full local sequence so CI stays green.
+`format:check → build → typecheck → lint → test`. Before pushing, run the full
+local sequence so CI stays green.
 
 The DCO sign-off job only runs on PRs; pushing straight to `master` skips it,
 but keep using `git commit -s` regardless.
-
-## Server & backend
-
-The Medusa backend runs on a **self-hosted server** (not local) — there is no
-local Postgres by default. Connect via the local helper script:
-
-- `C:\Users\sosno\OneDrive\Plocha\connect-server.bat` — opens an SSH session to
-  the server as `reet`, **LAN-first with a Tailscale fallback** when off-network.
-  (User-machine path, not in the repo.)
-
-Full server operations — services (systemd server/worker split), paths, network,
-backups, and the Coolify demo-deploy state — are documented in **`SERVER-OPS.md`**.
-
-> The server backend is currently **test-only** — safe for seed/fulfillment/Packeta
-> round-trips. There is no live production store yet (planned later). **When
-> production does go live, revisit this:** never run test/seed/fulfillment
-> experiments against a production backend — use a dedicated demo/staging instance.
