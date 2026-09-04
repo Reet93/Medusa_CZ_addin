@@ -42,6 +42,9 @@ importers:
       '@medusa-cz/invoicing-abraflexi':
         specifier: workspace:*
         version: link:../../packages/invoicing-abraflexi
+      '@medusa-cz/payment-comgate':
+        specifier: workspace:*
+        version: link:../../packages/payment-comgate
       '@medusa-cz/shared':
         specifier: workspace:*
         version: link:../../packages/shared
