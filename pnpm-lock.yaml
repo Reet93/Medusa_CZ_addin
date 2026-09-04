@@ -277,7 +277,7 @@ importers:
   packages/invoicing-abraflexi:
     dependencies:
       '@medusa-cz/shared':
-        specifier: workspace:*
+        specifier: file:../shared
         version: link:../shared
     devDependencies:
       '@medusajs/admin-sdk':

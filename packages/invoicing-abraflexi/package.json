@@ -37,7 +37,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@medusa-cz/shared": "workspace:*"
+    "@medusa-cz/shared": "file:../shared"
   },
   "devDependencies": {
     "@medusajs/admin-sdk": "2.17.0",
