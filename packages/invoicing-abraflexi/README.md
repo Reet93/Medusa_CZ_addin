@@ -68,10 +68,15 @@ plugins: [
 - **Wire-format field names.** `datVyd`/`splatnost`/`mena`/customer fields are
   verified against Abra Flexi's public docs; the line-items shape
   (`polozkyFaktury`/`faktura-vydana-polozka`) is corroborated by a community
-  reference but has no first-party JSON example for this evidence type. Run
-  `pnpm --filter @medusa-cz/invoicing-abraflexi test:integration` against a real
-  sandbox instance (set `ABRA_FLEXI_*` env vars) before relying on this in
-  production, and fix up field names here if the sandbox disagrees.
+  reference but has no first-party JSON example for this evidence type.
+  Separately, the generated `externalCode` (`order-<id>`, sent as the record's
+  `id` field prefixed `code:`) is roughly 32 characters for a real Medusa order
+  id — Abra Flexi's `kod` field, which that `code:` prefix addresses, has
+  undocumented-here length and allowed-charset constraints, also unverified.
+  Run `pnpm --filter @medusa-cz/invoicing-abraflexi test:integration` against a
+  real sandbox instance (set `ABRA_FLEXI_*` env vars) before relying on either
+  of these in production, and fix up field names / the external-code format
+  here if the sandbox disagrees.
 
 ## Manual acceptance (once registered with real credentials)
 

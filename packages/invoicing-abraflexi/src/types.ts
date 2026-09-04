@@ -49,8 +49,12 @@ export interface AbraFlexiInvoiceResult {
 }
 
 // The current CZ statutory basic VAT rate (zákon č. 235/2004 Sb., o dani z přidané
-// hodnoty, §47) — set by law, changes rarely but not never. Named constant per the
-// design spec so a future rate change is a one-line edit, not a hunt through the code.
+// hodnoty, §47), kept here for reference. Marker value only — never sent to Abra
+// Flexi (which resolves the real percentage server-side from
+// ABRA_FLEXI_VAT_RATE_CODE_BASIC's rate class); used here only to decide whether
+// the basic rate applies to a line (line.vatRate != null in abra-flexi-client.ts's
+// createInvoice gates only *whether* that rate-class code is attached, not what
+// percentage it represents). Editing this number does not change what gets invoiced.
 export const CZ_VAT_RATE_BASIC = 0.21
 
 // Abra Flexi's rate-class code for the basic VAT rate (winstrom `typSzbDphK` field),
