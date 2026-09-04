@@ -12,10 +12,16 @@ pnpm add @medusa-cz/invoicing-abraflexi
 
 ## Register (`medusa-config.ts`)
 
+Register this package under `plugins:`, not `modules:` — Medusa's plugin loader
+builds its subscriber/workflow list exclusively from `configModule.plugins`, so a
+`modules:`-only registration silently never fires `payment.captured`. A plugin
+entry auto-registers its `modules/*` with the same options, so there's no need
+for a separate `modules:` entry alongside it.
+
 ```ts
-modules: [
+plugins: [
   {
-    resolve: "@medusa-cz/invoicing-abraflexi/modules/abra-flexi",
+    resolve: "@medusa-cz/invoicing-abraflexi",
     options: {
       baseUrl: process.env.ABRA_FLEXI_BASE_URL,
       company: process.env.ABRA_FLEXI_COMPANY,
