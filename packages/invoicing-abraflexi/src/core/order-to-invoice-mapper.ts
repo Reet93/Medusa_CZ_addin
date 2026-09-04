@@ -37,12 +37,25 @@ export function mapOrderToAbraFlexiInvoice(
     }
   }
 
-  const lines: AbraFlexiInvoiceLine[] = (order.items ?? []).map((item) => ({
+  const itemLines: AbraFlexiInvoiceLine[] = (order.items ?? []).map((item) => ({
     name: item.title,
     quantity: item.quantity,
     unitPrice: item.unit_price,
     vatRate: config.vatPayer ? CZ_VAT_RATE_BASIC : undefined,
   }))
+
+  // Shipping charges live on order.shipping_methods, not order.items -- map them
+  // into their own invoice lines (one per shipping method) so the invoice isn't
+  // under-billed by the shipping amount. `amount` is a BigNumberValue (BigNumberJS |
+  // number | string | IBigNumber), unlike OrderLineItemDTO.unit_price, hence Number(...).
+  const shippingLines: AbraFlexiInvoiceLine[] = (order.shipping_methods ?? []).map((method) => ({
+    name: method.name,
+    quantity: 1,
+    unitPrice: Number(method.amount),
+    vatRate: config.vatPayer ? CZ_VAT_RATE_BASIC : undefined,
+  }))
+
+  const lines: AbraFlexiInvoiceLine[] = [...itemLines, ...shippingLines]
 
   const issueDate = new Date()
   const dueDate = new Date(issueDate)

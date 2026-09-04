@@ -50,6 +50,8 @@ export async function resolveOrderStepFn(
       "order.items.title",
       "order.items.quantity",
       "order.items.unit_price",
+      "order.shipping_methods.name",
+      "order.shipping_methods.amount",
       "order.shipping_address.*",
       "order.billing_address.*",
     ],

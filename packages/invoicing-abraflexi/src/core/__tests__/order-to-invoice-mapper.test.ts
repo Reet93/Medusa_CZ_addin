@@ -100,6 +100,42 @@ describe("mapOrderToAbraFlexiInvoice", () => {
     expect(payload.vatPayer).toBe(true)
   })
 
+  it("appends a line for each shipping method, after the item lines", () => {
+    const order = baseOrder({
+      shipping_methods: [{ name: "Doprava", amount: 79 }] as OrderDTO["shipping_methods"],
+    })
+    const payload = mapOrderToAbraFlexiInvoice(order, { vatPayer: false })
+    expect(payload.lines).toEqual([
+      { name: "Tričko", quantity: 2, unitPrice: 299, vatRate: undefined },
+      { name: "Doprava", quantity: 1, unitPrice: 79, vatRate: undefined },
+      { name: "Doprava", quantity: 1, unitPrice: 79, vatRate: undefined },
+    ])
+  })
+
+  it("sets CZ_VAT_RATE_BASIC on shipping lines too when vatPayer is true", () => {
+    const order = baseOrder({
+      shipping_methods: [{ name: "Poštovné", amount: 79 }] as OrderDTO["shipping_methods"],
+    })
+    const payload = mapOrderToAbraFlexiInvoice(order, { vatPayer: true })
+    expect(payload.lines).toHaveLength(3)
+    expect(payload.lines[2]).toEqual({
+      name: "Poštovné",
+      quantity: 1,
+      unitPrice: 79,
+      vatRate: CZ_VAT_RATE_BASIC,
+    })
+  })
+
+  it("maps cleanly with no phantom line when shipping_methods is undefined", () => {
+    const payload = mapOrderToAbraFlexiInvoice(baseOrder({ shipping_methods: undefined }), {
+      vatPayer: false,
+    })
+    expect(payload.lines).toEqual([
+      { name: "Tričko", quantity: 2, unitPrice: 299, vatRate: undefined },
+      { name: "Doprava", quantity: 1, unitPrice: 79, vatRate: undefined },
+    ])
+  })
+
   it("includes a valid IČO from order metadata", () => {
     const order = baseOrder({ metadata: { ico: "25063677" } })
     const payload = mapOrderToAbraFlexiInvoice(order, { vatPayer: false })
