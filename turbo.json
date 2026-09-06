@@ -11,7 +11,29 @@
     },
     "test:integration": {
       "dependsOn": ["^build"],
-      "cache": false
+      "cache": false,
+      // Turbo 2.x's default strict env mode strips any process env var not
+      // declared here before a task even starts -- undeclared vars don't
+      // just miss the cache hash, they never reach the child process at all.
+      // Without this list, DB_HOST/etc. (the DB-backed idempotency suite) and
+      // the external sandbox credentials below all silently vanish and every
+      // suite quietly skips instead of running -- verified the hard way: the
+      // first CI run of this task reported "skipped", not "passed", despite
+      // DB_HOST being set on the `pnpm test:integration` step in ci.yml.
+      "env": [
+        "DB_HOST",
+        "DB_USERNAME",
+        "DB_PASSWORD",
+        "DB_PORT",
+        "COMGATE_MERCHANT",
+        "COMGATE_SECRET",
+        "PACKETA_API_PASSWORD",
+        "PACKETA_ESHOP",
+        "ABRA_FLEXI_BASE_URL",
+        "ABRA_FLEXI_COMPANY",
+        "ABRA_FLEXI_USERNAME",
+        "ABRA_FLEXI_PASSWORD"
+      ]
     },
     "lint": {},
     "typecheck": {
