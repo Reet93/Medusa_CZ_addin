@@ -10,6 +10,13 @@ export default defineConfig({
     // all. Every other test file keeps its existing explicit `import { ... }
     // from "vitest"` style; vitest allows both at once.
     globals: true,
+    // medusaIntegrationTestRunner's beforeAll boots a real Medusa app (Order +
+    // Payment core modules) against Postgres and runs their migrations --
+    // routinely well past vitest's 10s default hookTimeout. Only the
+    // idempotency suite pays this cost; every other test file's hooks finish
+    // in milliseconds regardless of this ceiling.
+    hookTimeout: 60_000,
+    testTimeout: 60_000,
     // The opt-in live suite is excluded from the default (gate) run.
     // .medusa/** holds `medusa plugin:build`'s compiled output, including copies of
     // every *.test.ts as *.test.js — without this exclude, vitest picks those up too
