@@ -39,6 +39,13 @@ import { startMockAbraFlexiServer, type MockAbraFlexiServer } from "./mock-abra-
 // databaseDriverOptions. 127.0.0.1 takes that SSL branch against a plain
 // non-TLS local Postgres, which doesn't error but hangs the connection pool
 // indefinitely instead (verified against the server's Postgres container).
+//
+// Note: the runner's own cleanup does not reliably DROP its throwaway
+// database on exit (only disconnects) -- verified across several runs against
+// the server's Postgres. It's harmless (a new random `medusa-<ulid>-
+// integration-1` name each run, never the real app's database), but drop it
+// by hand occasionally: `docker exec medusa-postgres-1 psql -U medusa -d
+// postgres -c 'DROP DATABASE "medusa-<ulid>-integration-1"'`.
 const hasDb = !!process.env.DB_HOST
 const run = hasDb ? medusaIntegrationTestRunner : skippedSuite
 
