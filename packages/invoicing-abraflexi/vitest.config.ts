@@ -17,6 +17,12 @@ export default defineConfig({
     // in milliseconds regardless of this ceiling.
     hookTimeout: 60_000,
     testTimeout: 60_000,
+    // Vitest's default "forks" pool crashes running this suite on the
+    // server's Node 26 with an unrelated tinypool/vitest IPC bug
+    // ("deserialize ... Received type number" in tinypool's ChildProcess
+    // message handler, after the suite itself finishes migrating/booting
+    // cleanly) -- "threads" (worker_threads + structured clone) sidesteps it.
+    pool: "threads",
     // The opt-in live suite is excluded from the default (gate) run.
     // .medusa/** holds `medusa plugin:build`'s compiled output, including copies of
     // every *.test.ts as *.test.js — without this exclude, vitest picks those up too
