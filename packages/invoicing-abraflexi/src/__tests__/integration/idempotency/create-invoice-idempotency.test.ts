@@ -30,8 +30,15 @@ import { startMockAbraFlexiServer, type MockAbraFlexiServer } from "./mock-abra-
 // DB_HOST/DB_USERNAME/DB_PASSWORD/DB_PORT at module-load time (medusajs/medusa
 // #16272), so they must be real process env vars before vitest starts, e.g.:
 //
-//   DB_HOST=127.0.0.1 DB_USERNAME=medusa DB_PASSWORD=*** DB_PORT=5432 \
+//   DB_HOST=localhost DB_USERNAME=medusa DB_PASSWORD=*** DB_PORT=5432 \
 //     pnpm test:integration
+//
+// Use the literal string "localhost", not "127.0.0.1": test-utils'
+// configLoaderOverride does `clientUrl.includes("localhost")` to decide
+// whether to force `ssl: { rejectUnauthorized: false }` into
+// databaseDriverOptions. 127.0.0.1 takes that SSL branch against a plain
+// non-TLS local Postgres, which doesn't error but hangs the connection pool
+// indefinitely instead (verified against the server's Postgres container).
 const hasDb = !!process.env.DB_HOST
 const run = hasDb ? medusaIntegrationTestRunner : skippedSuite
 
