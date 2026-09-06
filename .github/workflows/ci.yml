@@ -35,6 +35,25 @@ jobs:
   verify:
     name: typecheck · lint · test · build
     runs-on: ubuntu-latest
+    # Postgres 16, matching the version SERVER-OPS.md documents the actual
+    # deploy running (medusa-postgres-1, postgres:16-alpine). On a plain
+    # ubuntu-latest runner (not a containerized job) this service's port is
+    # published straight to the runner's own localhost -- no docker networking
+    # to wire up, DB_HOST=localhost below just works.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -48,5 +67,16 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
-    # NOTE (M1): integration tests will need a Postgres service here; add a
-    # `services.postgres` block + DATABASE_URL when the first plugin gains tests.
+      # Only the DB-backed suites (currently: invoicing-abraflexi's
+      # idempotency-guard test) actually run here. The Comgate/Packeta/Abra
+      # Flexi *sandbox* suites under the same `test:integration` script stay
+      # skipped -- they gate on real external API credentials
+      # (COMGATE_MERCHANT, PACKETA_API_KEY, ABRA_FLEXI_*) that are
+      # deliberately not CI secrets: this is a public repo, and those suites
+      # exist to be run by hand against a developer's own sandbox account.
+      - run: pnpm test:integration
+        env:
+          DB_HOST: localhost
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+          DB_PORT: "5432"
