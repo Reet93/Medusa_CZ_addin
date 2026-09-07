@@ -11,6 +11,10 @@ function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
+export function abraFlexiExternalCodeForOrder(orderId: string): string {
+  return `order-${orderId}`
+}
+
 export function mapOrderToAbraFlexiInvoice(
   order: OrderDTO,
   config: AbraFlexiMapperConfig
@@ -62,7 +66,7 @@ export function mapOrderToAbraFlexiInvoice(
   dueDate.setDate(dueDate.getDate() + ABRA_FLEXI_DEFAULT_DUE_DAYS)
 
   return {
-    externalCode: `order-${order.id}`,
+    externalCode: abraFlexiExternalCodeForOrder(order.id),
     currency: order.currency_code.toUpperCase(),
     issueDate: isoDate(issueDate),
     dueDate: isoDate(dueDate),

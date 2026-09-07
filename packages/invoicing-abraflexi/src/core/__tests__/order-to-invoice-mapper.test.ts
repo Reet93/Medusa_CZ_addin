@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { mapOrderToAbraFlexiInvoice } from "../order-to-invoice-mapper"
+import { mapOrderToAbraFlexiInvoice, abraFlexiExternalCodeForOrder } from "../order-to-invoice-mapper"
 import { CZ_VAT_RATE_BASIC } from "../../types"
 import type { OrderDTO } from "@medusajs/framework/types"
 
@@ -166,5 +166,11 @@ describe("mapOrderToAbraFlexiInvoice", () => {
     const payload = mapOrderToAbraFlexiInvoice(baseOrder({ metadata: null }), { vatPayer: false })
     expect(payload.customer.ico).toBeUndefined()
     expect(payload.customer.dic).toBeUndefined()
+  })
+})
+
+describe("abraFlexiExternalCodeForOrder", () => {
+  it("prefixes the order id with 'order-'", () => {
+    expect(abraFlexiExternalCodeForOrder("ord_123")).toBe("order-ord_123")
   })
 })
