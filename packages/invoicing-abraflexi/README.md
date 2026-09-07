@@ -1,8 +1,11 @@
 # @medusa-cz/invoicing-abraflexi
 
-Abra Flexi invoicing for MedusaJS 2.0 (medusa-cz). Listens for `payment.captured`
-and issues a Czech sales invoice in Abra Flexi via a durable, retried Medusa
-workflow. Idempotent — a second capture on an already-invoiced order is a no-op.
+Abra Flexi invoicing for MedusaJS 2.0 (medusa-cz). Listens for `payment.captured`,
+issues a Czech sales invoice in Abra Flexi, then marks it paid — both via durable,
+retried Medusa workflows. Idempotent — a second capture on an already-invoiced
+order creates no duplicate invoice, and a second capture with a *different*
+payment id (Medusa's split-tender case) records that payment too, without
+re-recording ones already seen.
 
 ## Install
 
@@ -54,6 +57,11 @@ plugins: [
    the workflow run visibly instead of retrying — check Medusa's workflow execution
    log for manual reconciliation.
 6. Persist `abra_flexi_invoice_id` / `abra_flexi_invoice_code` onto `order.metadata`.
+7. Mark the invoice paid: if the payment id is already in
+   `order.metadata.abra_flexi_recorded_payment_ids`, stop — already recorded.
+8. Otherwise, `PUT` the invoice's payment status (`stavUhrK`) to Abra Flexi's
+   "paid manually" code. Same retry/failure behavior as invoice creation.
+9. Append the payment id to `order.metadata.abra_flexi_recorded_payment_ids`.
 
 ## Known gaps (by design, deferred)
 
@@ -63,8 +71,15 @@ plugins: [
 - **Storefront IČO/DIČ capture.** The mapper reads `order.metadata.ico` /
   `order.metadata.dic` if present, but nothing in the storefront sets them yet
   (B2C only, today). Small fast-follow once B2B checkout is needed.
-- **Payment status sync, credit notes, general ledger.** Separate sub-projects
-  (2-4) of the Abra Flexi milestone — not built here.
+- **Credit notes, general ledger.** Separate sub-projects (3-4) of the Abra
+  Flexi milestone — not built here. Payment status (sub-project 2) is built,
+  via a direct field write, not a linked bank record — see
+  `docs/superpowers/research/2026-09-06-abra-flexi-payment-api-verification.md`
+  for why, and what upgrading to a bank-record-based approach would need.
+- **Settlement-completeness / reconciliation.** Nothing here computes "is this
+  invoice fully paid" or cross-checks captured amounts against invoice totals
+  — that stays Abra Flexi's own concern. A periodic reconciliation job is a
+  documented stretch goal, not built.
 - **Wire-format field names.** `datVyd`/`splatnost`/`mena`/customer fields are
   verified against Abra Flexi's public docs; the line-items shape
   (`polozkyFaktury`/`faktura-vydana-polozka`) is corroborated by a community
