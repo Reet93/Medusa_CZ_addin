@@ -15,6 +15,10 @@ export function abraFlexiExternalCodeForOrder(orderId: string): string {
   return `order-${orderId}`
 }
 
+export function creditNoteExternalCodeForRefund(orderId: string, refundId: string): string {
+  return `order-${orderId}-credit-${refundId}`
+}
+
 export function mapOrderToAbraFlexiInvoice(
   order: OrderDTO,
   config: AbraFlexiMapperConfig

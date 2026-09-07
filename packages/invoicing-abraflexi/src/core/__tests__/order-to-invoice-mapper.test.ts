@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import {
   mapOrderToAbraFlexiInvoice,
   abraFlexiExternalCodeForOrder,
+  creditNoteExternalCodeForRefund,
 } from "../order-to-invoice-mapper"
 import { CZ_VAT_RATE_BASIC } from "../../types"
 import type { OrderDTO } from "@medusajs/framework/types"
@@ -175,5 +176,11 @@ describe("mapOrderToAbraFlexiInvoice", () => {
 describe("abraFlexiExternalCodeForOrder", () => {
   it("prefixes the order id with 'order-'", () => {
     expect(abraFlexiExternalCodeForOrder("ord_123")).toBe("order-ord_123")
+  })
+})
+
+describe("creditNoteExternalCodeForRefund", () => {
+  it("combines the order id and refund id into a single deterministic code", () => {
+    expect(creditNoteExternalCodeForRefund("ord_123", "ref_1")).toBe("order-ord_123-credit-ref_1")
   })
 })
