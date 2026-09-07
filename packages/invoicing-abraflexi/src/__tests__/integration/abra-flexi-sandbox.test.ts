@@ -28,4 +28,27 @@ run("Abra Flexi sandbox (live)", () => {
     expect(result.id).toBeTruthy()
     expect(result.code).toMatch(/^sandbox-test-/)
   })
+
+  it("records a payment against a just-created invoice", async () => {
+    const client = new AbraFlexiClient({
+      baseUrl: baseUrl!,
+      company: company!,
+      username: username!,
+      password: password!,
+    })
+
+    const externalCode = `sandbox-test-payment-${Date.now()}`
+    await client.createInvoice({
+      externalCode,
+      currency: "CZK",
+      issueDate: new Date().toISOString().slice(0, 10),
+      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      customer: { name: "Sandbox Test Customer", countryCode: "CZ" },
+      lines: [{ name: "Integration test item", quantity: 1, unitPrice: 1 }],
+      vatPayer: false,
+    })
+
+    const result = await client.recordPayment({ invoiceExternalCode: externalCode })
+    expect(result.id).toBeTruthy()
+  })
 })
