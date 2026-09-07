@@ -1,11 +1,12 @@
 # @medusa-cz/invoicing-abraflexi
 
-Abra Flexi invoicing for MedusaJS 2.0 (medusa-cz). Listens for `payment.captured`,
-issues a Czech sales invoice in Abra Flexi, then marks it paid — both via durable,
-retried Medusa workflows. Idempotent — a second capture on an already-invoiced
-order creates no duplicate invoice, and a second capture with a _different_
-payment id (Medusa's split-tender case) records that payment too, without
-re-recording ones already seen.
+Abra Flexi invoicing for MedusaJS 2.0 (medusa-cz). Listens for `payment.captured`
+to issue and mark paid a Czech sales invoice, and for `payment.refunded` /
+`order.canceled` to issue a linked credit note (dobropis) for any new Medusa
+refund — all via durable, retried Medusa workflows. Idempotent throughout: a
+second capture, a replayed refund event, or a second cancellation never
+re-creates an invoice, payment record, or credit note already recorded, while a
+genuinely new payment or refund on the same order is still recorded.
 
 ## Install
 
@@ -63,6 +64,26 @@ plugins: [
 8. Otherwise, `PUT` the invoice's payment status (`stavUhrK`) to Abra Flexi's
    "paid manually" code. Same retry/failure behavior as invoice creation.
 9. Append the payment id to `order.metadata.abra_flexi_recorded_payment_ids`.
+10. `payment.refunded` or `order.canceled` fires. Resolve the order (via the
+    refunded payment's `payment_collection_id` for the former; directly for
+    the latter).
+11. If `order.metadata.abra_flexi_invoice_id` isn't set, stop — no invoice
+    exists yet to correct (e.g. the order was canceled before ever being
+    captured).
+12. List every refund across every payment on the order and diff against
+    `order.metadata.abra_flexi_recorded_refund_ids`; stop if there's nothing
+    new.
+13. For each new refund (oldest first): build a credit-note payload — a full,
+    negated mirror of the original invoice's lines when triggered by
+    `order.canceled`, or a single lump-sum "Refund" line for the refunded
+    amount when triggered by `payment.refunded` — then create it in Abra
+    Flexi and link it to the original invoice (two sequential `PUT`s to the
+    same `faktura-vydana.json` endpoint). Same retry/failure behavior as
+    invoice creation; a failure on the link step surfaces as a visible
+    workflow failure describing the now-orphaned credit note, for manual
+    reconciliation.
+14. Append each newly recorded refund id to
+    `order.metadata.abra_flexi_recorded_refund_ids`.
 
 ## Known gaps (by design, deferred)
 
@@ -72,11 +93,23 @@ plugins: [
 - **Storefront IČO/DIČ capture.** The mapper reads `order.metadata.ico` /
   `order.metadata.dic` if present, but nothing in the storefront sets them yet
   (B2C only, today). Small fast-follow once B2B checkout is needed.
-- **Credit notes, general ledger.** Separate sub-projects (3-4) of the Abra
-  Flexi milestone — not built here. Payment status (sub-project 2) is built,
-  via a direct field write, not a linked bank record — see
-  `docs/superpowers/research/2026-09-06-abra-flexi-payment-api-verification.md`
-  for why, and what upgrading to a bank-record-based approach would need.
+- **General ledger.** Sub-project 4 of the Abra Flexi milestone — not built
+  here. Credit notes (sub-project 3) are built — see "What it does" above.
+- **Returns/exchanges as a credit-note trigger.** Only a real Payment-module
+  refund (the admin "Refund payment" action, or a full order cancellation)
+  produces a credit note. Medusa's own return/exchange/claim workflows in
+  this version don't call the real refund-payment path at all — they
+  produce order-level "credit lines" instead, a different, non-money ledger
+  adjustment this package doesn't react to. See
+  `docs/superpowers/research/2026-09-07-abra-flexi-credit-notes-api-verification.md`
+  Part 2 for the full trace. If this business's RMA process relies on that
+  flow alone, no credit note is produced — a real gap, not a guess.
+- **Orphaned/unlinked credit-note reconciliation.** If a credit note is
+  created in Abra Flexi but the follow-up link call (or the refund-id
+  persistence step) then fails non-retryably, nothing here detects or
+  auto-repairs it later — it's a visible workflow failure at the time, for
+  manual reconciliation in Abra Flexi directly. A periodic reconciliation
+  job is a documented stretch goal, not built.
 - **Settlement-completeness / reconciliation.** Payment status is _asserted_,
   not derived: the first capture on an order writes Abra Flexi's "paid
   manually" status onto the whole invoice, regardless of whether that capture
@@ -99,6 +132,9 @@ plugins: [
   real sandbox instance (set `ABRA_FLEXI_*` env vars) before relying on either
   of these in production, and fix up field names / the external-code format
   here if the sandbox disagrees.
+  Separately, `typDokl: code:DOBROPIS` (credit notes, sub-project 3) carries
+  the same unverified-by-default caveat as `code:FAKTURA` — confirm both via
+  the live sandbox suite.
 
 ## Manual acceptance (once registered with real credentials)
 
