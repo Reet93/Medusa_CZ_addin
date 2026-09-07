@@ -48,6 +48,15 @@ export interface AbraFlexiInvoiceResult {
   code: string
 }
 
+export interface AbraFlexiRecordPaymentPayload {
+  /** matches AbraFlexiInvoicePayload.externalCode for the invoice being marked paid */
+  invoiceExternalCode: string
+}
+
+export interface AbraFlexiRecordPaymentResult {
+  id: string
+}
+
 // The current CZ statutory basic VAT rate (zákon č. 235/2004 Sb., o dani z přidané
 // hodnoty, §47), kept here for reference. Marker value only — never sent to Abra
 // Flexi (which resolves the real percentage server-side from
@@ -60,6 +69,18 @@ export const CZ_VAT_RATE_BASIC = 0.21
 // Abra Flexi's rate-class code for the basic VAT rate (winstrom `typSzbDphK` field),
 // verified against https://podpora.flexibee.eu/en/articles/3935269-order-fulfillment-in-json-format
 export const ABRA_FLEXI_VAT_RATE_CODE_BASIC = "typSzbDph.dphZakl"
+
+// Abra Flexi's manual-payment-status code (winstrom `stavUhrK` field on
+// faktura-vydana), written directly on the invoice via the same
+// faktura-vydana.json endpoint createInvoice() already uses. Chosen over
+// creating a linked `banka` bank-movement record (also a valid, documented
+// approach) because this business doesn't manage real bank/cash records in
+// Abra Flexi yet -- see
+// docs/superpowers/research/2026-09-06-abra-flexi-payment-api-verification.md
+// for both options and why. Swapping to a `banka`-based implementation later
+// only touches AbraFlexiClient.recordPayment's internals below, not the
+// workflow that calls it.
+export const ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY = "stavUhr.paidRucne"
 
 // Net payment terms applied to every issued invoice. Not specified by the design spec;
 // 14 days is the common CZ B2C default. Revisit if the business needs per-order terms.

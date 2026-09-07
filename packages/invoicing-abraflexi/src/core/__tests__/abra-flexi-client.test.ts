@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { AbraFlexiClient, AbraFlexiApiError } from "../abra-flexi-client"
-import { ABRA_FLEXI_VAT_RATE_CODE_BASIC } from "../../types"
+import { ABRA_FLEXI_VAT_RATE_CODE_BASIC, ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY } from "../../types"
 import type { AbraFlexiInvoicePayload } from "../../types"
 
 const opts = {
@@ -168,5 +168,77 @@ describe("AbraFlexiClient.createInvoice", () => {
       status: 0,
       retryable: true,
     })
+  })
+})
+
+describe("AbraFlexiClient.recordPayment", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    mockFetchFn = null
+  })
+
+  it("PUTs to the faktura-vydana collection URL with Basic auth", async () => {
+    mockFetchOnce(200, { winstrom: { success: true, results: [{ id: "1" }] } })
+    const client = new AbraFlexiClient(opts)
+    await client.recordPayment({ invoiceExternalCode: "order-ord_123" })
+    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
+    expect(call[0]).toBe("https://demo.flexibee.eu:5434/c/demo_company/faktura-vydana.json")
+    expect(call[1].method).toBe("PUT")
+    expect(call[1].headers.Authorization).toBe(
+      "Basic " + Buffer.from("winstrom:winstrom").toString("base64")
+    )
+    expect(call[1].headers["Content-Type"]).toBe("application/json")
+  })
+
+  it("sends only the invoice id and the manual-paid status code", async () => {
+    mockFetchOnce(200, { winstrom: { success: true, results: [{ id: "1" }] } })
+    await new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "order-ord_123" })
+    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
+    const body = JSON.parse(call[1].body)
+    expect(body.winstrom["faktura-vydana"]).toEqual({
+      id: "code:order-ord_123",
+      stavUhrK: `code:${ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY}`,
+    })
+  })
+
+  it("resolves with the numeric id", async () => {
+    mockFetchOnce(200, { winstrom: { success: true, results: [{ id: "42" }] } })
+    const result = await new AbraFlexiClient(opts).recordPayment({
+      invoiceExternalCode: "order-ord_123",
+    })
+    expect(result).toEqual({ id: "42" })
+  })
+
+  it("throws a retryable AbraFlexiApiError on a 5xx response", async () => {
+    mockFetchOnce(500, {
+      winstrom: { success: false, results: [{ id: "0", errors: [{ message: "boom" }] }] },
+    })
+    await expect(
+      new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "order-ord_123" })
+    ).rejects.toMatchObject({ name: "AbraFlexiApiError", status: 500, retryable: true, message: "boom" })
+  })
+
+  it("throws a non-retryable AbraFlexiApiError on a 404 response (invoice not found)", async () => {
+    mockFetchOnce(404, {
+      winstrom: {
+        success: false,
+        results: [{ id: "0", errors: [{ message: "Record not found" }] }],
+      },
+    })
+    await expect(
+      new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "order-ord_123" })
+    ).rejects.toMatchObject({
+      name: "AbraFlexiApiError",
+      status: 404,
+      retryable: false,
+      message: "Record not found",
+    })
+  })
+
+  it("throws a retryable error on a network failure", async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error("ECONNRESET")) as unknown as typeof fetch
+    await expect(
+      new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "order-ord_123" })
+    ).rejects.toMatchObject({ name: "AbraFlexiApiError", status: 0, retryable: true })
   })
 })

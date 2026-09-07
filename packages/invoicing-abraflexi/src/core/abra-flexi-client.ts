@@ -1,5 +1,11 @@
-import type { AbraFlexiInvoicePayload, AbraFlexiInvoiceResult, AbraFlexiOptions } from "../types.js"
-import { ABRA_FLEXI_VAT_RATE_CODE_BASIC } from "../types.js"
+import type {
+  AbraFlexiInvoicePayload,
+  AbraFlexiInvoiceResult,
+  AbraFlexiOptions,
+  AbraFlexiRecordPaymentPayload,
+  AbraFlexiRecordPaymentResult,
+} from "../types.js"
+import { ABRA_FLEXI_VAT_RATE_CODE_BASIC, ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY } from "../types.js"
 
 export class AbraFlexiApiError extends Error {
   readonly name = "AbraFlexiApiError"
@@ -96,5 +102,49 @@ export class AbraFlexiClient {
       )
     }
     return { id: String(result.id), code: payload.externalCode }
+  }
+
+  async recordPayment(
+    payload: AbraFlexiRecordPaymentPayload
+  ): Promise<AbraFlexiRecordPaymentResult> {
+    let res: Response
+    try {
+      res = await this.fetchFn(`${this.base}/c/${this.company}/faktura-vydana.json`, {
+        method: "PUT",
+        headers: { Authorization: this.auth, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          winstrom: {
+            "faktura-vydana": {
+              id: `code:${payload.invoiceExternalCode}`,
+              stavUhrK: `code:${ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY}`,
+            },
+          },
+        }),
+      })
+    } catch (e) {
+      throw new AbraFlexiApiError(0, `Abra Flexi network error: ${(e as Error).message}`, true)
+    }
+
+    let parsed: AbraFlexiWriteResponse | undefined
+    try {
+      parsed = (await res.json()) as AbraFlexiWriteResponse
+    } catch {
+      parsed = undefined
+    }
+
+    const result = parsed?.winstrom?.results?.[0]
+    const retryable = res.status >= 500
+    if (!res.ok || parsed?.winstrom?.success === false) {
+      const message = result?.errors?.[0]?.message ?? `Abra Flexi HTTP ${res.status}`
+      throw new AbraFlexiApiError(res.status, message, retryable)
+    }
+    if (!result?.id) {
+      throw new AbraFlexiApiError(
+        res.status,
+        "Abra Flexi: payment-status update response missing result id",
+        false
+      )
+    }
+    return { id: String(result.id) }
   }
 }
