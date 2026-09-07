@@ -57,6 +57,21 @@ export interface AbraFlexiRecordPaymentResult {
   id: string
 }
 
+export interface AbraFlexiCreditNotePayload extends AbraFlexiInvoicePayload {
+  /**
+   * externalCode of the original invoice this credit note corrects (the same
+   * AbraFlexiInvoicePayload.externalCode / abraFlexiExternalCodeForOrder(orderId)
+   * value createInvoice() already used for that invoice) -- sent as
+   * vytvor-vazbu-dobropis.dobropisovanyDokl on the second (link) PUT.
+   */
+  originalInvoiceExternalCode: string
+}
+
+export interface AbraFlexiCreditNoteResult {
+  id: string
+  code: string
+}
+
 // The current CZ statutory basic VAT rate (zákon č. 235/2004 Sb., o dani z přidané
 // hodnoty, §47), kept here for reference. Marker value only — never sent to Abra
 // Flexi (which resolves the real percentage server-side from
@@ -81,6 +96,17 @@ export const ABRA_FLEXI_VAT_RATE_CODE_BASIC = "typSzbDph.dphZakl"
 // only touches AbraFlexiClient.recordPayment's internals below, not the
 // workflow that calls it.
 export const ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY = "stavUhr.paidRucne"
+
+// Abra Flexi's document-type code for a credit note (dobropis / opravný daňový
+// doklad), written as `typDokl` on the same faktura-vydana.json endpoint
+// createInvoice()/recordPayment() already use -- see
+// docs/superpowers/research/2026-09-07-abra-flexi-credit-notes-api-verification.md
+// Part 1. Not verified against a live instance whether this code exists by
+// default in every Abra Flexi company (same caveat this package's README
+// already carries for code:FAKTURA) -- confirm via
+// pnpm --filter @medusa-cz/invoicing-abraflexi test:integration's live
+// sandbox suite (Task 6) before relying on it in production.
+export const ABRA_FLEXI_DOCUMENT_TYPE_CODE_CREDIT_NOTE = "DOBROPIS"
 
 // Net payment terms applied to every issued invoice. Not specified by the design spec;
 // 14 days is the common CZ B2C default. Revisit if the business needs per-order terms.

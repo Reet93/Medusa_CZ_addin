@@ -3,8 +3,9 @@ import { AbraFlexiClient, AbraFlexiApiError } from "../abra-flexi-client"
 import {
   ABRA_FLEXI_VAT_RATE_CODE_BASIC,
   ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY,
+  ABRA_FLEXI_DOCUMENT_TYPE_CODE_CREDIT_NOTE,
 } from "../../types"
-import type { AbraFlexiInvoicePayload } from "../../types"
+import type { AbraFlexiInvoicePayload, AbraFlexiCreditNotePayload } from "../../types"
 
 const opts = {
   baseUrl: "https://demo.flexibee.eu:5434",
@@ -250,3 +251,123 @@ describe("AbraFlexiClient.recordPayment", () => {
     ).rejects.toMatchObject({ name: "AbraFlexiApiError", status: 0, retryable: true })
   })
 })
+
+describe("AbraFlexiClient.createCreditNote", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    mockFetchFn = null
+  })
+
+  const creditNotePayload: AbraFlexiCreditNotePayload = {
+    externalCode: "order-ord_123-credit-ref_1",
+    originalInvoiceExternalCode: "order-ord_123",
+    currency: "CZK",
+    issueDate: "2026-09-07",
+    dueDate: "2026-09-21",
+    customer: { name: "Jan Novák", countryCode: "CZ" },
+    lines: [{ name: "Refund", quantity: -1, unitPrice: 100 }],
+    vatPayer: false,
+  }
+
+  it("PUTs twice to the same faktura-vydana collection URL: create, then link", async () => {
+    mockFetchOnce(201, { winstrom: { success: true, results: [{ id: "555" }] } })
+    mockFetchOnce(200, { winstrom: { success: true, results: [{ id: "555" }] } })
+    await new AbraFlexiClient(opts).createCreditNote(creditNotePayload)
+    const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls
+    expect(calls).toHaveLength(2)
+    expect(calls[0]![0]).toBe("https://demo.flexibee.eu:5434/c/demo_company/faktura-vydana.json")
+    expect(calls[0]![1].method).toBe("PUT")
+    expect(calls[1]![0]).toBe("https://demo.flexibee.eu:5434/c/demo_company/faktura-vydana.json")
+    expect(calls[1]![1].method).toBe("PUT")
+  })
+
+  it("sends typDokl DOBROPIS, the record's own code, and its own line items on the first PUT", async () => {
+    mockFetchOnce(201, { winstrom: { success: true, results: [{ id: "555" }] } })
+    mockFetchOnce(200, { winstrom: { success: true, results: [{ id: "555" }] } })
+    await new AbraFlexiClient(opts).createCreditNote(creditNotePayload)
+    const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls
+    const record = JSON.parse(calls[0]![1].body).winstrom["faktura-vydana"]
+    expect(record.id).toBe("code:order-ord_123-credit-ref_1")
+    expect(record.typDokl).toBe(`code:${ABRA_FLEXI_DOCUMENT_TYPE_CODE_CREDIT_NOTE}`)
+    expect(record.mena).toBe("code:CZK")
+    expect(record.polozkyFaktury[0]["faktura-vydana-polozka"]).toEqual({
+      nazev: "Refund",
+      mnozMj: -1,
+      cenaMj: 100,
+    })
+  })
+
+  it("sends only the link field, addressing the credit note's own code, on the second PUT", async () => {
+    mockFetchOnce(201, { winstrom: { success: true, results: [{ id: "555" }] } })
+    mockFetchOnce(200, { winstrom: { success: true, results: [{ id: "555" }] } })
+    await new AbraFlexiClient(opts).createCreditNote(creditNotePayload)
+    const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls
+    const secondBody = JSON.parse(calls[1]![1].body)
+    expect(secondBody.winstrom["faktura-vydana"]).toEqual({
+      id: "code:order-ord_123-credit-ref_1",
+      "vytvor-vazbu-dobropis": { dobropisovanyDokl: "code:order-ord_123" },
+    })
+  })
+
+  it("resolves with the created credit note's numeric id and its own external code", async () => {
+    mockFetchOnce(201, { winstrom: { success: true, results: [{ id: "555" }] } })
+    mockFetchOnce(200, { winstrom: { success: true, results: [{ id: "555" }] } })
+    const result = await new AbraFlexiClient(opts).createCreditNote(creditNotePayload)
+    expect(result).toEqual({ id: "555", code: "order-ord_123-credit-ref_1" })
+  })
+
+  it("does not attempt the link PUT when the create PUT fails, and throws its error as-is", async () => {
+    mockFetchOnce(400, {
+      winstrom: { success: false, results: [{ id: "0", errors: [{ message: "bad payload" }] }] },
+    })
+    await expect(
+      new AbraFlexiClient(opts).createCreditNote(creditNotePayload)
+    ).rejects.toMatchObject({
+      name: "AbraFlexiApiError",
+      status: 400,
+      retryable: false,
+      message: "bad payload",
+    })
+    expect((globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1)
+  })
+
+  it("treats a 5xx on the create PUT as retryable", async () => {
+    mockFetchOnce(500, {
+      winstrom: { success: false, results: [{ id: "0", errors: [{ message: "boom" }] }] },
+    })
+    await expect(
+      new AbraFlexiClient(opts).createCreditNote(creditNotePayload)
+    ).rejects.toMatchObject({ name: "AbraFlexiApiError", status: 500, retryable: true })
+  })
+
+  it("wraps a non-retryable link-PUT failure with an 'orphaned credit note' message, preserving its status", async () => {
+    mockFetchOnce(201, { winstrom: { success: true, results: [{ id: "555" }] } })
+    mockFetchOnce(400, {
+      winstrom: {
+        success: false,
+        results: [{ id: "0", errors: [{ message: "already linked to another document" }] }],
+      },
+    })
+    await expect(
+      new AbraFlexiClient(opts).createCreditNote(creditNotePayload)
+    ).rejects.toMatchObject({
+      name: "AbraFlexiApiError",
+      status: 400,
+      retryable: false,
+      message: expect.stringContaining(
+        'credit note "order-ord_123-credit-ref_1" (id "555") was created but linking it to invoice "order-ord_123" failed: already linked to another document'
+      ),
+    })
+  })
+
+  it("wraps a retryable (5xx) link-PUT failure the same way, preserving retryable: true", async () => {
+    mockFetchOnce(201, { winstrom: { success: true, results: [{ id: "555" }] } })
+    mockFetchOnce(500, {
+      winstrom: { success: false, results: [{ id: "0", errors: [{ message: "boom" }] }] },
+    })
+    await expect(
+      new AbraFlexiClient(opts).createCreditNote(creditNotePayload)
+    ).rejects.toMatchObject({ name: "AbraFlexiApiError", status: 500, retryable: true })
+  })
+})
+
