@@ -9,3 +9,8 @@ export {
   recordPaymentInAbraFlexiWorkflow,
   type RecordPaymentInAbraFlexiInput,
 } from "./workflows/record-payment-in-abra-flexi.js"
+export {
+  createCreditNoteInAbraFlexiWorkflow,
+  type CreateCreditNoteInAbraFlexiInput,
+  type CreditNoteTrigger,
+} from "./workflows/create-credit-note-in-abra-flexi.js"
