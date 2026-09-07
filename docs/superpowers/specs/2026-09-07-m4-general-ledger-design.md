@@ -136,7 +136,7 @@ its `zuctovano` field (verified real field name — see research doc §2).
 - **Tradeoff:** cheapest, matches this repo's standing preference for a
   live-sandbox check over a guess (this milestone's `test:integration`
   discipline exists exactly for this). Downside: nothing in this codebase
-  would catch a *future* regression if someone later edits or removes that
+  would catch a _future_ regression if someone later edits or removes that
   posting-rule configuration in Abra Flexi's UI — the opt-in test only
   runs when a developer chooses to run `test:integration` with live
   credentials, not on every deploy.
@@ -188,7 +188,7 @@ finding.
 
 ## Recommendation
 
-**Option A.** It resolves the one genuine unknown (does *this* business's
+**Option A.** It resolves the one genuine unknown (does _this_ business's
 Abra Flexi company already post these invoices) with the smallest
 possible change, matches the milestone's established preference for a
 live-sandbox check over an assumption (sub-project 2's Task 6 existed for

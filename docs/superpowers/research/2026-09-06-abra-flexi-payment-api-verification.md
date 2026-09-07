@@ -73,8 +73,8 @@ Abra Flexi's "Matching Payments in JSON Format" and "Párování plateb"
   `castecnaUhradaNeboIgnorovat`. Multiple `uhrazovanaFak` entries can appear
   in one `sparovani` block to settle several invoices from one payment.
 - **Not yet verified:** a `banka` record also requires `typDokl` (document
-  type) and `bankovniUcet` (a bank-account reference, i.e. a *real,
-  pre-existing bank account entity registered in this Abra Flexi company*)
+  type) and `bankovniUcet` (a bank-account reference, i.e. a _real,
+  pre-existing bank account entity registered in this Abra Flexi company_)
   — confirmed as required fields in general, but the exact `typDokl` code
   value to use for an incoming payment wasn't pinned down from docs alone;
   would need either a live `/c/{company}/banka/properties` call against

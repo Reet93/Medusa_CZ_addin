@@ -71,15 +71,15 @@ Fetching `faktura-vydana`'s real `properties.json` from the public demo
 instance (live this session, not from memory) confirms the exact
 accounting-related fields Abra Flexi's invoice-issued evidence carries:
 
-| `propertyName` | `dbName`     | label (`name`)          | type       |
-| -------------- | ------------ | ------------------------ | ---------- |
-| `zuctovano`    | `Zuctovano`  | Zaúčtováno ("Stav zaúčtování") | `logic`    |
-| `ucetni`       | `Ucetni`     | Je účetní                | `logic`    |
-| `datUcto`      | `DatUcto`    | Datum zaúčtování          | `date`     |
-| `stredisko`    | `IdStred`    | Středisko                | `relation` |
-| `typUcOp`      | `IdTypUcOp`  | Předpis zaúčtování        | `relation` |
-| `primUcet`     | `IdPrimUcet` | Účet MD                  | `relation` |
-| `protiUcet`    | `IdProtiUcet`| Účet DAL                 | `relation` |
+| `propertyName` | `dbName`      | label (`name`)                 | type       |
+| -------------- | ------------- | ------------------------------ | ---------- |
+| `zuctovano`    | `Zuctovano`   | Zaúčtováno ("Stav zaúčtování") | `logic`    |
+| `ucetni`       | `Ucetni`      | Je účetní                      | `logic`    |
+| `datUcto`      | `DatUcto`     | Datum zaúčtování               | `date`     |
+| `stredisko`    | `IdStred`     | Středisko                      | `relation` |
+| `typUcOp`      | `IdTypUcOp`   | Předpis zaúčtování             | `relation` |
+| `primUcet`     | `IdPrimUcet`  | Účet MD                        | `relation` |
+| `protiUcet`    | `IdProtiUcet` | Účet DAL                       | `relation` |
 
 — <https://demo.flexibee.eu/c/demo/faktura-vydana/properties.json> (fetched
 live this session)
@@ -106,7 +106,7 @@ this reason — same "no VAT line until VAT-payer" style of a field being
 genuinely optional given this business's actual configuration, not an
 oversight.
 
-**`typUcOp` (posting rule) is configured once, on the invoice *type*, not
+**`typUcOp` (posting rule) is configured once, on the invoice _type_, not
 per invoice:**
 
 > Posting rules are set up per "Issued Invoice Type," on that type's
@@ -132,7 +132,7 @@ English redirect of `4538522-vseobecne-vlastnosti-dokumentu`: "posting
 template and cost center, transferred from document type").
 
 **What is NOT independently confirmed by a directly-quotable article in
-this pass:** whether an invoice becomes `zuctovano: true` *immediately*,
+this pass:** whether an invoice becomes `zuctovano: true` _immediately_,
 automatically, the moment its posting rule and cost center are both
 resolvable (vs. requiring some separate manual "post" action even when the
 data is complete). Two separate Czech-language web searches both
@@ -147,7 +147,7 @@ not proven** — the `zuctovano` field (§2 above) is real and checkable, but
 whether it flips to `true` automatically for this plugin's invoices needs a
 live create-then-read-back check against the real target company (see the
 spec's Option A), not a doc citation. (One unrelated product line also
-surfaced in search — `help.abra.eu`, "ABRA Gen" — is a *different* ERP
+surfaced in search — `help.abra.eu`, "ABRA Gen" — is a _different_ ERP
 product from the same vendor, not Abra Flexi/FlexiBee; excluded from this
 verification as not authoritative for this API.)
 

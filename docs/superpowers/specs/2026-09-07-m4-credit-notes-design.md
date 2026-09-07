@@ -33,7 +33,7 @@ Part 2 for the full trace, summarized here:
   (the Admin API's "refund a payment" action) — payload `{ id: payment.id }`.
 - Canceling an order (`POST /admin/orders/:id/cancel`,
   `cancelOrderWorkflow`) auto-refunds every already-captured payment on the
-  order through a *different*, **plural** `refundPaymentsWorkflow` internal
+  order through a _different_, **plural** `refundPaymentsWorkflow` internal
   path — which creates real `RefundDTO` rows but **never emits
   `payment.refunded`**. Only `order.canceled` fires (payload
   `{ id: order.id }`).
@@ -60,7 +60,7 @@ the same core logic below.
 - **Neither event payload is used for anything but resolving an order.**
   `payment.refunded`'s `{ id }` is a payment id → resolved to its order via
   the same `payment_collection_id` join `resolveOrderStepFn` already uses.
-  `order.canceled`'s `{ id }` already *is* the order id. Once an order is
+  `order.canceled`'s `{ id }` already _is_ the order id. Once an order is
   resolved, both paths do identical work from there: list every refund
   across every payment on that order and diff against what's already been
   turned into a credit note. This is deliberate — trusting event payload
@@ -95,19 +95,19 @@ the same core logic below.
 - **Precondition: an Abra Flexi invoice must already exist.** If
   `order.metadata.abra_flexi_invoice_id` isn't set (order canceled before
   ever being captured/invoiced — a real, ordinary case, since
-  `cancelOrderWorkflow` also cancels *uncaptured* payments with nothing to
+  `cancelOrderWorkflow` also cancels _uncaptured_ payments with nothing to
   credit), skip entirely. There is nothing to link a credit note to, and no
   invoice was ever issued for Abra Flexi to correct.
 - **Abra Flexi API shape: Option B (two-step create-then-link), not Option
   A.** Verified in the research doc: Option A (`dobropisuj` with
-  `polozkyDokladu.polozka.id`) needs the *original* invoice's own internal
+  `polozkyDokladu.polozka.id`) needs the _original_ invoice's own internal
   Abra Flexi line-item ids, which `createInvoice`'s result
   (`AbraFlexiInvoiceResult { id, code }`) never captures today. Option B
   creates the credit note with its own freely-built `polozkyFaktury` (reuse
   of the exact line-building shape `createInvoice` already has) via one
   `PUT`, then links it to the original invoice via a second `PUT` carrying
   `vytvor-vazbu-dobropis.dobropisovanyDokl: code:<original invoice's
-  externalCode>`. Same endpoint (`faktura-vydana.json`) both times — no new
+externalCode>`. Same endpoint (`faktura-vydana.json`) both times — no new
   evidence type, matching sub-project 2's "reuse the existing endpoint"
   precedent.
 - **The credit note gets its own `externalCode`, deterministically derived
@@ -120,12 +120,12 @@ the same core logic below.
   creation and payment recording.
 - **Line items — two shapes, chosen by which event triggered the run, not
   by computing "is this the last refund":**
-  - **Order-cancellation path (`order.canceled`):** mirror the *original
-    Medusa order's* line items and shipping lines (reusing
+  - **Order-cancellation path (`order.canceled`):** mirror the _original
+    Medusa order's_ line items and shipping lines (reusing
     `mapOrderToAbraFlexiInvoice`'s line-building logic, not duplicating it)
     with **negated quantities** — a full, honest storno of everything that
     was originally billed. This is correct here specifically because
-    `cancelOrderWorkflow` refunds the *entirety* of every captured payment
+    `cancelOrderWorkflow` refunds the _entirety_ of every captured payment
     on the order (verified in the research doc — `refundCapturedPaymentsWorkflow`
     computes `amountToRefund = capturedAmount - refundedAmount` per
     payment, i.e., whatever hasn't already been refunded, in full).
@@ -141,8 +141,8 @@ the same core logic below.
     present) rather than guessing which product was returned.
   - **Explicitly not attempted:** detecting "this partial refund happens to
     sum to 100% of the invoice" from a `payment.refunded`-triggered run and
-    upgrading it to a full item-mirror. The branch is tied to *which event
-    fired*, not to a computed running total — keeps the rule simple and
+    upgrading it to a full item-mirror. The branch is tied to _which event
+    fired_, not to a computed running total — keeps the rule simple and
     avoids a wrong guess when a sequence of unrelated partial refunds
     happens to add up to the total by coincidence.
 - **VAT:** identical mechanism to today's invoice mapper — no new field,
@@ -156,7 +156,7 @@ the same core logic below.
   and `recordPaymentInAbraFlexiWorkflow`: nothing external is mutated before
   the create-credit-note API call, and once Abra Flexi has accepted it,
   rolling back would mean deleting a real accounting document — not
-  something a failed *later* step (e.g., persisting the recorded-refund-id)
+  something a failed _later_ step (e.g., persisting the recorded-refund-id)
   should trigger automatically. A failure after the create-and-link calls
   succeed but before persistence should be caught by a retry of the whole
   workflow re-discovering the same "already exists in Abra Flexi, not yet
@@ -174,7 +174,7 @@ the same core logic below.
   links it to the original invoice by `code:`.
 - Two sequential HTTP calls internally (create, then link) — not exposed
   as two separate client methods; `createCreditNote` owns both PUTs and
-  only resolves once the record is both created *and* linked, so callers
+  only resolves once the record is both created _and_ linked, so callers
   never see a half-linked credit note as a success.
 - **Not verified against a live instance** (flagged explicitly, not
   guessed past): whether `code:DOBROPIS` exists in this business's Abra
@@ -229,26 +229,26 @@ to an invoice payload).
    return immediately — nothing to credit.
 3. **Step: list refunds, diff against recorded ids.** Query
    `paymentModuleService.listRefunds({ payment_id: <every payment id on
-   the order> })` (or an equivalent join), filter to refund ids **not**
+the order> })` (or an equivalent join), filter to refund ids **not**
    already in `abra_flexi_recorded_refund_ids`. If none remain, no-op —
-   this is what makes a duplicate/replayed `payment.refunded` *or*
+   this is what makes a duplicate/replayed `payment.refunded` _or_
    `order.canceled` a safe no-op regardless of which one fired twice.
 4. **Per new refund (in order of `created_at`, oldest first — so a
    replayed run processes them in a stable, predictable order):**
    a. **Step: build the credit-note payload.** Full-mirror shape if this
-      workflow run was triggered by `order.canceled`, lump-sum shape if
-      triggered by `payment.refunded` — the workflow's `input` carries
-      which one it was (`triggeredBy: "order_canceled" |
-      "payment_refunded"`), not inferred from data.
+   workflow run was triggered by `order.canceled`, lump-sum shape if
+   triggered by `payment.refunded` — the workflow's `input` carries
+   which one it was (`triggeredBy: "order_canceled" |
+"payment_refunded"`), not inferred from data.
    b. **Step: create the credit note.** Calls
-      `AbraFlexiClient.createCreditNote`. Retry config matching
-      `createInvoiceStep`/`recordPaymentStep` (transient retried, 4xx
-      permanent failure, visible in the workflow log).
+   `AbraFlexiClient.createCreditNote`. Retry config matching
+   `createInvoiceStep`/`recordPaymentStep` (transient retried, 4xx
+   permanent failure, visible in the workflow log).
    c. **Step: persist.** Append this refund's id to
-      `order.metadata.abra_flexi_recorded_refund_ids` (read-modify-write,
-      never a blind overwrite — must not clobber prior entries, same
-      non-clobbering requirement sub-project 2 already established for
-      `abra_flexi_recorded_payment_ids`).
+   `order.metadata.abra_flexi_recorded_refund_ids` (read-modify-write,
+   never a blind overwrite — must not clobber prior entries, same
+   non-clobbering requirement sub-project 2 already established for
+   `abra_flexi_recorded_payment_ids`).
 
 No compensation step (see Decisions above for why).
 
@@ -262,11 +262,11 @@ thin-subscriber pattern:
   the payment id to an order id (same join `resolveOrderStepFn` already
   does for `payment.captured`), then runs
   `createCreditNoteInAbraFlexiWorkflow(container).run({ input: { orderId,
-  triggeredBy: "payment_refunded" } })`.
+triggeredBy: "payment_refunded" } })`.
 - `subscribers/order-canceled.ts`, `event: "order.canceled"`. The event
   payload's `id` already is the order id — runs
   `createCreditNoteInAbraFlexiWorkflow(container).run({ input: { orderId:
-  data.id, triggeredBy: "order_canceled" } })` directly, no resolution
+data.id, triggeredBy: "order_canceled" } })` directly, no resolution
   step needed.
 
 Both are new files — `payment-captured.ts` is not extended further here
@@ -290,7 +290,7 @@ suites' style and the mocked-`fetch` pattern in `abra-flexi-client.test.ts`:
   negated quantities, `vatPayer` on/off, `creditNoteExternalCodeForRefund`'s
   exact format.
 - `create-credit-note-in-abra-flexi.test.ts` — idempotency guard (a refund
-  id already in the recorded array is skipped; a *different*, new refund id
+  id already in the recorded array is skipped; a _different_, new refund id
   on the same order is **not** skipped, proving multi-partial-refund
   correctness), the no-invoice-yet no-op, the `triggeredBy`-selected line
   shape, retry behavior, persisted array append (not overwrite).

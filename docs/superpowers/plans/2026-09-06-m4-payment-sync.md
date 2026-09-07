@@ -58,10 +58,12 @@ packages/invoicing-abraflexi/
 ### Task 1: Shared `externalCode` helper
 
 **Files:**
+
 - Modify: `packages/invoicing-abraflexi/src/core/order-to-invoice-mapper.ts`
 - Modify: `packages/invoicing-abraflexi/src/core/__tests__/order-to-invoice-mapper.test.ts`
 
 **Interfaces:**
+
 - Produces (used by Task 3): `abraFlexiExternalCodeForOrder(orderId: string): string`, exported from `order-to-invoice-mapper.ts`.
 
 Today `mapOrderToAbraFlexiInvoice` inlines `` `order-${order.id}` `` directly (line 65). The new payment-recording workflow needs to derive the exact same string from an order id (it addresses the same invoice record, not a fresh one) — duplicating the template literal in two files would let them silently drift if the format ever changes. Extracting it once, now, while it's a one-line change, avoids that.
@@ -71,7 +73,10 @@ Today `mapOrderToAbraFlexiInvoice` inlines `` `order-${order.id}` `` directly (l
 Add to `packages/invoicing-abraflexi/src/core/__tests__/order-to-invoice-mapper.test.ts`, after the existing `import` lines:
 
 ```ts
-import { mapOrderToAbraFlexiInvoice, abraFlexiExternalCodeForOrder } from "../order-to-invoice-mapper"
+import {
+  mapOrderToAbraFlexiInvoice,
+  abraFlexiExternalCodeForOrder,
+} from "../order-to-invoice-mapper"
 ```
 
 (replacing the existing `import { mapOrderToAbraFlexiInvoice } from "../order-to-invoice-mapper"` line)
@@ -124,11 +129,13 @@ git commit -s -m "refactor(invoicing-abraflexi): extract abraFlexiExternalCodeFo
 ### Task 2: `AbraFlexiClient.recordPayment`
 
 **Files:**
+
 - Modify: `packages/invoicing-abraflexi/src/types.ts`
 - Modify: `packages/invoicing-abraflexi/src/core/abra-flexi-client.ts`
 - Modify: `packages/invoicing-abraflexi/src/core/__tests__/abra-flexi-client.test.ts`
 
 **Interfaces:**
+
 - Consumes: none new.
 - Produces (used by Task 3): `AbraFlexiClient.recordPayment(payload: AbraFlexiRecordPaymentPayload): Promise<AbraFlexiRecordPaymentResult>`; types `AbraFlexiRecordPaymentPayload { invoiceExternalCode: string }`, `AbraFlexiRecordPaymentResult { id: string }`; constant `ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY`.
 
@@ -168,7 +175,10 @@ export const ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY = "stavUhr.paidRucne"
 Add to `packages/invoicing-abraflexi/src/core/__tests__/abra-flexi-client.test.ts`. First, update the import line at the top of the file:
 
 ```ts
-import { ABRA_FLEXI_VAT_RATE_CODE_BASIC, ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY } from "../../types"
+import {
+  ABRA_FLEXI_VAT_RATE_CODE_BASIC,
+  ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY,
+} from "../../types"
 ```
 
 (replacing the existing `import { ABRA_FLEXI_VAT_RATE_CODE_BASIC } from "../../types"` line)
@@ -220,7 +230,12 @@ describe("AbraFlexiClient.recordPayment", () => {
     })
     await expect(
       new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "order-ord_123" })
-    ).rejects.toMatchObject({ name: "AbraFlexiApiError", status: 500, retryable: true, message: "boom" })
+    ).rejects.toMatchObject({
+      name: "AbraFlexiApiError",
+      status: 500,
+      retryable: true,
+      message: "boom",
+    })
   })
 
   it("throws a non-retryable AbraFlexiApiError on a 404 response (invoice not found)", async () => {
@@ -266,7 +281,10 @@ import type {
   AbraFlexiRecordPaymentPayload,
   AbraFlexiRecordPaymentResult,
 } from "../types.js"
-import { ABRA_FLEXI_VAT_RATE_CODE_BASIC, ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY } from "../types.js"
+import {
+  ABRA_FLEXI_VAT_RATE_CODE_BASIC,
+  ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY,
+} from "../types.js"
 ```
 
 (replacing the existing two `import` lines at the top of the file)
@@ -336,11 +354,13 @@ git commit -s -m "feat(invoicing-abraflexi): add AbraFlexiClient.recordPayment"
 ### Task 3: `recordPaymentInAbraFlexiWorkflow`
 
 **Files:**
+
 - Create: `packages/invoicing-abraflexi/src/workflows/record-payment-in-abra-flexi.ts`
 - Create: `packages/invoicing-abraflexi/src/workflows/__tests__/record-payment-in-abra-flexi.test.ts`
 - Modify: `packages/invoicing-abraflexi/src/workflows/create-invoice-in-abra-flexi.ts` (export `resolveOrderStepFn`'s step wrapper is not needed — only the already-exported `resolveOrderStepFn` function is reused; no change needed to this file. Confirmed by inspection: `resolveOrderStepFn` is already `export async function` — skip this bullet, listed here only to record that it was checked, not to imply a change.)
 
 **Interfaces:**
+
 - Consumes: `resolveOrderStepFn` from `./create-invoice-in-abra-flexi.js` (Medusa's `Modules.PAYMENT`/`ContainerRegistrationKeys.QUERY` container resolution, same as Task 5's existing usage); `AbraFlexiClient.recordPayment` (Task 2); `abraFlexiExternalCodeForOrder` (Task 1); `ABRA_FLEXI_MODULE` from `../modules/abra-flexi/index.js`; `AbraFlexiApiError` from `../core/abra-flexi-client.js`.
 - Produces (used by Task 4): `recordPaymentInAbraFlexiWorkflow(container)` — a Medusa workflow, `.run({ input: { paymentId: string } })`, resolving to `{ recordedPaymentIds: string[] }`. Also exports `recordPaymentStepFn` and `persistRecordedPaymentIdStepFn` (unit-tested directly, same pattern as `create-invoice-in-abra-flexi.ts`'s exported step functions).
 
@@ -350,7 +370,10 @@ Create `packages/invoicing-abraflexi/src/workflows/__tests__/record-payment-in-a
 
 ```ts
 import { describe, it, expect, vi } from "vitest"
-import { recordPaymentStepFn, persistRecordedPaymentIdStepFn } from "../record-payment-in-abra-flexi"
+import {
+  recordPaymentStepFn,
+  persistRecordedPaymentIdStepFn,
+} from "../record-payment-in-abra-flexi"
 import { AbraFlexiApiError } from "../../core/abra-flexi-client"
 import type { OrderDTO } from "@medusajs/framework/types"
 
@@ -370,10 +393,9 @@ describe("recordPaymentStepFn", () => {
     const client = { recordPayment: vi.fn().mockResolvedValue({ id: "99" }) }
     const container = mockContainer({ abraFlexi: { getClient: () => client } })
 
-    const response = await recordPaymentStepFn(
-      { externalCode: "order-ord_1" },
-      { container } as never
-    )
+    const response = await recordPaymentStepFn({ externalCode: "order-ord_1" }, {
+      container,
+    } as never)
 
     expect(client.recordPayment).toHaveBeenCalledWith({ invoiceExternalCode: "order-ord_1" })
     expect(response.output).toEqual({ id: "99" })
@@ -570,7 +592,8 @@ export const recordPaymentInAbraFlexiWorkflow = createWorkflow(
     const result = transform({ resolved, recordedIds }, ({ resolved, recordedIds }) => ({
       recordedPaymentIds:
         recordedIds ??
-        ((resolved.order.metadata?.abra_flexi_recorded_payment_ids as string[] | undefined) ?? []),
+        (resolved.order.metadata?.abra_flexi_recorded_payment_ids as string[] | undefined) ??
+        [],
     }))
 
     return new WorkflowResponse(result)
@@ -600,11 +623,13 @@ git commit -s -m "feat(invoicing-abraflexi): add recordPaymentInAbraFlexiWorkflo
 ### Task 4: Extend the `payment.captured` subscriber
 
 **Files:**
+
 - Modify: `packages/invoicing-abraflexi/src/subscribers/payment-captured.ts`
 - Modify: `packages/invoicing-abraflexi/src/subscribers/__tests__/payment-captured.test.ts`
 - Modify: `packages/invoicing-abraflexi/README.md`
 
 **Interfaces:**
+
 - Consumes: `createInvoiceInAbraFlexiWorkflow` (existing), `recordPaymentInAbraFlexiWorkflow` (Task 3).
 - Produces: nothing new — this is the integration point, nothing else depends on it.
 
@@ -720,7 +745,7 @@ Replace the top summary paragraph (currently ending "... Idempotent — a second
 Abra Flexi invoicing for MedusaJS 2.0 (medusa-cz). Listens for `payment.captured`,
 issues a Czech sales invoice in Abra Flexi, then marks it paid — both via durable,
 retried Medusa workflows. Idempotent — a second capture on an already-invoiced
-order creates no duplicate invoice, and a second capture with a *different*
+order creates no duplicate invoice, and a second capture with a _different_
 payment id (Medusa's split-tender case) records that payment too, without
 re-recording ones already seen.
 ```
@@ -769,14 +794,16 @@ git commit -s -m "feat(invoicing-abraflexi): chain payment recording after invoi
 ### Task 5: DB-backed idempotency integration test
 
 **Files:**
+
 - Modify: `packages/invoicing-abraflexi/src/__tests__/integration/idempotency/mock-abra-flexi-server.ts`
 - Create: `packages/invoicing-abraflexi/src/__tests__/integration/idempotency/record-payment-idempotency.test.ts`
 
 **Interfaces:**
+
 - Consumes: `recordPaymentInAbraFlexiWorkflow` (Task 3), `createInvoiceInAbraFlexiWorkflow` (existing), `startMockAbraFlexiServer` (extended below).
 - Produces: nothing new for later tasks — this is a leaf test.
 
-The existing mock server counts every `PUT .../faktura-vydana.json` call as an invoice creation. Since `recordPayment` (Task 2) PUTs to that *same* endpoint, the mock needs to tell the two apart by body shape, so this new test can assert on payment-recording calls specifically without disturbing the existing `create-invoice-idempotency.test.ts`'s `callCount()` usage.
+The existing mock server counts every `PUT .../faktura-vydana.json` call as an invoice creation. Since `recordPayment` (Task 2) PUTs to that _same_ endpoint, the mock needs to tell the two apart by body shape, so this new test can assert on payment-recording calls specifically without disturbing the existing `create-invoice-idempotency.test.ts`'s `callCount()` usage.
 
 - [ ] **Step 1: Extend the mock server (no test file changes needed — this is shared test infrastructure, verified by both idempotency tests passing)**
 
@@ -980,12 +1007,9 @@ run({
 })
 
 function skippedSuite() {
-  describe.skip(
-    "Abra Flexi record-payment idempotency guard (DB-backed) -- skipped, DB_HOST not set",
-    () => {
-      it("requires DB_HOST/DB_USERNAME/DB_PASSWORD/DB_PORT env vars pointing at a real Postgres", () => {})
-    }
-  )
+  describe.skip("Abra Flexi record-payment idempotency guard (DB-backed) -- skipped, DB_HOST not set", () => {
+    it("requires DB_HOST/DB_USERNAME/DB_PASSWORD/DB_PORT env vars pointing at a real Postgres", () => {})
+  })
 }
 ```
 
@@ -1014,9 +1038,11 @@ git commit -s -m "test(invoicing-abraflexi): DB-backed idempotency guard for pay
 ### Task 6: Extend the live opt-in sandbox suite
 
 **Files:**
+
 - Modify: `packages/invoicing-abraflexi/src/__tests__/integration/abra-flexi-sandbox.test.ts`
 
 **Interfaces:**
+
 - Consumes: `AbraFlexiClient.recordPayment` (Task 2).
 - Produces: nothing — leaf test, and the real verification gate for whether `stavUhrK: "code:stavUhr.paidRucne"` actually works against a real Abra Flexi instance (the research in Task 2 is docs-only; nothing in Tasks 1-5 fires a real request).
 
@@ -1025,28 +1051,28 @@ git commit -s -m "test(invoicing-abraflexi): DB-backed idempotency guard for pay
 Add to `packages/invoicing-abraflexi/src/__tests__/integration/abra-flexi-sandbox.test.ts`, inside the existing `run("Abra Flexi sandbox (live)", () => { ... })` block, after the existing `it("creates a test invoice and returns its id/code", ...)` case:
 
 ```ts
-  it("records a payment against a just-created invoice", async () => {
-    const client = new AbraFlexiClient({
-      baseUrl: baseUrl!,
-      company: company!,
-      username: username!,
-      password: password!,
-    })
-
-    const externalCode = `sandbox-test-payment-${Date.now()}`
-    await client.createInvoice({
-      externalCode,
-      currency: "CZK",
-      issueDate: new Date().toISOString().slice(0, 10),
-      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-      customer: { name: "Sandbox Test Customer", countryCode: "CZ" },
-      lines: [{ name: "Integration test item", quantity: 1, unitPrice: 1 }],
-      vatPayer: false,
-    })
-
-    const result = await client.recordPayment({ invoiceExternalCode: externalCode })
-    expect(result.id).toBeTruthy()
+it("records a payment against a just-created invoice", async () => {
+  const client = new AbraFlexiClient({
+    baseUrl: baseUrl!,
+    company: company!,
+    username: username!,
+    password: password!,
   })
+
+  const externalCode = `sandbox-test-payment-${Date.now()}`
+  await client.createInvoice({
+    externalCode,
+    currency: "CZK",
+    issueDate: new Date().toISOString().slice(0, 10),
+    dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    customer: { name: "Sandbox Test Customer", countryCode: "CZ" },
+    lines: [{ name: "Integration test item", quantity: 1, unitPrice: 1 }],
+    vatPayer: false,
+  })
+
+  const result = await client.recordPayment({ invoiceExternalCode: externalCode })
+  expect(result.id).toBeTruthy()
+})
 ```
 
 - [ ] **Step 2: Run against the real sandbox**

@@ -44,7 +44,7 @@ or reacting to a later async status change.
   different payment id. The existing invoice-creation workflow already
   designed around this (its idempotency guard makes every capture after the
   first a no-op, since one invoice covers the whole order total regardless
-  of how it's paid). For payment *recording*, the equivalent no-op-the-rest
+  of how it's paid). For payment _recording_, the equivalent no-op-the-rest
   approach would silently drop real settlement data for split-tender orders.
   Instead: `order.metadata.abra_flexi_recorded_payment_ids: string[]` tracks
   which payment ids have already been recorded; the workflow's guard step
@@ -57,7 +57,7 @@ or reacting to a later async status change.
   Flexi's own ledger already sums whatever payment records it's given
   against an invoice; duplicating that math here would be speculative
   complexity aimed at a question Abra Flexi already answers. Revisit only if
-  a real need to *query* that state from Medusa's side ever appears.
+  a real need to _query_ that state from Medusa's side ever appears.
 - **Capture amount:** v1 asserts the captured amount matches what's being
   recorded (the payment's own amount, from the Payment module) — no
   cross-checking against the invoice total or flagging over/underpayment.
@@ -145,7 +145,7 @@ TDD per repo discipline (RED → GREEN → REFACTOR), matching the existing
 - `abra-flexi-client.test.ts` — extended with `recordPayment` mocked-HTTP
   cases (success, 4xx, 5xx), against the verified `stavUhrK` field write.
 - `record-payment-in-abra-flexi.test.ts` — idempotency guard (repeat
-  `paymentId` is a no-op; a *different* `paymentId` on the same order is
+  `paymentId` is a no-op; a _different_ `paymentId` on the same order is
   **not** a no-op, proving split-tender correctness), retry behavior,
   persisted array append (not overwrite).
 - DB-backed idempotency-guard integration test, same style and same real

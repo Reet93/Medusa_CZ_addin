@@ -9,6 +9,7 @@ pnpm-lock.yaml
 # Local tooling state — never format or stage
 .vexp
 .superpowers
+.claude/worktrees
 
 # Vendored demo dev-harness (Medusa starter) — not part of the open-core format gate.
 # These apps follow upstream starter formatting; our open-core lives in packages/*.

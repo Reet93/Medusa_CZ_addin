@@ -20,6 +20,9 @@ coverage/
 # Superpowers SDD scratch state (local only) — never commit
 .superpowers/
 
+# Claude Code agent worktrees (ephemeral, per-session parallel-agent scratch) — never commit
+.claude/worktrees/
+
 # Env files — never commit real env; templates/examples are tracked
 .env
 .env.*

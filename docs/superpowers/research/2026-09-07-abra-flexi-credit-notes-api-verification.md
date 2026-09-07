@@ -56,6 +56,7 @@ by its `code:` value (i.e., this package's existing `externalCode` /
   }
 }
 ```
+
 (shown here as JSON; Abra Flexi's own docs give this as XML — this package
 already sends JSON to the same endpoint for `createInvoice`/`recordPayment`,
 and Abra Flexi's REST API accepts either for the same evidence)
@@ -81,8 +82,8 @@ article's two side-by-side XML examples:
 
 **Option A — single-step, item-id-based (`dobropisuj`).** Create the
 `faktura-vydana` record with `typDokl: code:DOBROPIS` and a `dobropisuj`
-block that both names the original invoice (`dobropisovanyDokl`) *and*
-selects which of the *original invoice's own line items* (by their Abra
+block that both names the original invoice (`dobropisovanyDokl`) _and_
+selects which of the _original invoice's own line items_ (by their Abra
 Flexi-assigned internal `id`, plus a quantity) to credit, in one call:
 
 ```xml
@@ -102,7 +103,7 @@ Flexi-assigned internal `id`, plus a quantity) to credit, in one call:
 
 **Option B — two-step, own-items + explicit link (`vytvor-vazbu-dobropis`).**
 Create the `faktura-vydana` record with `typDokl: code:DOBROPIS` and its
-*own* freely-built `polozkyFaktury` line items (the same shape
+_own_ freely-built `polozkyFaktury` line items (the same shape
 `createInvoice` already builds) in one PUT, then a second PUT against the
 same record (`id: code:<its own code>`) carrying only the
 `vytvor-vazbu-dobropis.dobropisovanyDokl` link field:
@@ -123,8 +124,8 @@ Both are documented at
 <https://demo.flexibee.eu/devdoc/dobropisy>.
 
 **Decision (this session): implement Option B.** Option A's
-`polozkyDokladu.polozka.id` requires the *original invoice's own internal
-Abra Flexi line-item ids* — but this package's `createInvoice` (and its
+`polozkyDokladu.polozka.id` requires the _original invoice's own internal
+Abra Flexi line-item ids_ — but this package's `createInvoice` (and its
 `AbraFlexiInvoiceResult` return type: `{ id, code }`) never captures or
 persists per-line-item ids from invoice creation today. Building on Option A
 would mean adding a whole new capability (fetch + store per-item ids from
@@ -228,7 +229,7 @@ the order from a bare payment id rather than trusting event payload shape.
 Reading `cancel-order.js` in full: cancelling an order runs
 `refundCapturedPaymentsWorkflow.runAsStep(...)` (which real-refunds every
 already-captured payment on the order) and separately cancels any
-*uncaptured* payments — then emits **only** `order.canceled`:
+_uncaptured_ payments — then emits **only** `order.canceled`:
 
 ```js
 const [refundedPayments] = parallelize(
@@ -273,7 +274,7 @@ credit lines"** (`createOrderRefundCreditLinesWorkflow` —
 `dist/order/workflows/payments/create-order-refund-credit-lines.js`), a
 different, order-level ledger adjustment that is not the same thing as a
 `RefundDTO` against a real payment. `cancel-order.js` itself also calls this
-same credit-lines workflow, but only *in addition to* its real payment
+same credit-lines workflow, but only _in addition to_ its real payment
 refunds (to true up any Medusa-side "pending difference" from order edits),
 not instead of them.
 
