@@ -38,6 +38,32 @@ const resolveOrderStep = createStep(
   resolveOrderStepFn
 )
 
+// Defense-in-depth guard, added after review: the subscriber always runs
+// createInvoiceInAbraFlexiWorkflow before this workflow, so in the normal path
+// the invoice already exists by the time this runs. But AbraFlexiClient.recordPayment
+// PUTs to faktura-vydana.json with an `id: "code:<externalCode>"` -- an upsert-shaped
+// write -- so if this workflow were ever invoked directly (or the invoice-creation
+// step's persisted id were somehow missing) without a real invoice behind that code,
+// Abra Flexi plausibly creates a bare stub invoice carrying only the paid status,
+// rather than 404ing. Failing loudly here, before the API call, avoids depending on
+// that unverified upsert behavior.
+export async function assertInvoiceExistsStepFn(
+  { order }: ResolvedOrder,
+  _ctx: StepCtx
+): Promise<StepResponse<{ invoiceId: string }>> {
+  const invoiceId = order.metadata?.abra_flexi_invoice_id as string | undefined
+  if (!invoiceId) {
+    return StepResponse.permanentFailure(
+      `Abra Flexi: cannot record payment for order "${order.id}" -- no abra_flexi_invoice_id in metadata (invoice not created yet)`
+    )
+  }
+  return new StepResponse({ invoiceId })
+}
+const assertInvoiceExistsStep = createStep(
+  "assert-abra-flexi-invoice-exists-before-recording-payment",
+  assertInvoiceExistsStepFn
+)
+
 export async function recordPaymentStepFn(
   input: { externalCode: string },
   { container }: StepCtx
@@ -94,9 +120,17 @@ export const recordPaymentInAbraFlexiWorkflow = createWorkflow(
 
     const recordedIds = when({ alreadyRecorded }, ({ alreadyRecorded }) => !alreadyRecorded).then(
       () => {
-        const externalCodeInput = transform({ resolved }, ({ resolved }) => ({
-          externalCode: abraFlexiExternalCodeForOrder(resolved.order.id),
-        }))
+        const assertResult = assertInvoiceExistsStep(resolved)
+        const externalCodeInput = transform(
+          { resolved, assertResult },
+          ({ resolved, assertResult }) => ({
+            externalCode: abraFlexiExternalCodeForOrder(resolved.order.id),
+            // Included only to give this step a data dependency on assertResult, so
+            // it runs after the invoice-exists guard passes, not in parallel with it --
+            // same technique persistRecordedPaymentIdStep below uses for recordResult.
+            _invoiceExistsGuard: assertResult.invoiceId,
+          })
+        )
         const recordResult = recordPaymentStep(externalCodeInput)
         return persistRecordedPaymentIdStep(
           transform({ resolved, input, recordResult }, ({ resolved, input, recordResult }) => ({
@@ -112,12 +146,13 @@ export const recordPaymentInAbraFlexiWorkflow = createWorkflow(
       }
     )
 
-    const result = transform({ resolved, recordedIds }, ({ resolved, recordedIds }) => ({
-      recordedPaymentIds:
-        recordedIds ??
-        (resolved.order.metadata?.abra_flexi_recorded_payment_ids as string[] | undefined) ??
-        [],
-    }))
+    const result = transform({ resolved, recordedIds }, ({ resolved, recordedIds }) => {
+      if (recordedIds) {
+        return { recordedPaymentIds: recordedIds }
+      }
+      const existing = resolved.order.metadata?.abra_flexi_recorded_payment_ids
+      return { recordedPaymentIds: Array.isArray(existing) ? (existing as string[]) : [] }
+    })
 
     return new WorkflowResponse(result)
   }

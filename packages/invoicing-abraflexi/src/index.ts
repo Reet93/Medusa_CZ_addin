@@ -5,3 +5,7 @@ export {
   createInvoiceInAbraFlexiWorkflow,
   type CreateInvoiceInAbraFlexiInput,
 } from "./workflows/create-invoice-in-abra-flexi.js"
+export {
+  recordPaymentInAbraFlexiWorkflow,
+  type RecordPaymentInAbraFlexiInput,
+} from "./workflows/record-payment-in-abra-flexi.js"

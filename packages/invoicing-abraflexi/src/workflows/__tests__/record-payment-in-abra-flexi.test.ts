@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest"
 import {
+  assertInvoiceExistsStepFn,
   recordPaymentStepFn,
   persistRecordedPaymentIdStepFn,
 } from "../record-payment-in-abra-flexi"
@@ -16,6 +17,30 @@ const order = {
 function mockContainer(overrides: Record<string, unknown> = {}) {
   return { resolve: vi.fn((key: string) => overrides[key]) }
 }
+
+describe("assertInvoiceExistsStepFn", () => {
+  it("resolves with the invoice id when order.metadata.abra_flexi_invoice_id is set", async () => {
+    const orderWithInvoice = {
+      ...order,
+      metadata: { abra_flexi_invoice_id: "42" },
+    } as OrderDTO
+
+    const response = await assertInvoiceExistsStepFn({ order: orderWithInvoice }, {
+      container: mockContainer(),
+    } as never)
+
+    expect(response.output).toEqual({ invoiceId: "42" })
+  })
+
+  it("fails permanently when order.metadata.abra_flexi_invoice_id is missing", async () => {
+    await expect(
+      assertInvoiceExistsStepFn({ order }, { container: mockContainer() } as never)
+    ).rejects.toMatchObject({
+      // Medusa's PermanentStepFailureError sets its own .name to "PermanentStepFailure".
+      name: "PermanentStepFailure",
+    })
+  })
+})
 
 describe("recordPaymentStepFn", () => {
   it("calls the client with the given external code and returns its result", async () => {
@@ -90,5 +115,27 @@ describe("persistRecordedPaymentIdStepFn", () => {
       metadata: { abra_flexi_recorded_payment_ids: ["pay_0", "pay_1"] },
     })
     expect(response.output).toEqual(["pay_0", "pay_1"])
+  })
+
+  it("preserves unrelated metadata keys already set by invoice creation", async () => {
+    const updateOrders = vi.fn().mockResolvedValue({})
+    const container = mockContainer({ order: { updateOrders } })
+    const orderWithInvoiceMetadata = {
+      ...order,
+      metadata: { abra_flexi_invoice_id: "42", abra_flexi_invoice_code: "order-ord_1" },
+    } as OrderDTO
+
+    await persistRecordedPaymentIdStepFn(
+      { order: orderWithInvoiceMetadata, paymentId: "pay_1", recordedPaymentAbraFlexiId: "99" },
+      { container } as never
+    )
+
+    expect(updateOrders).toHaveBeenCalledWith("ord_1", {
+      metadata: {
+        abra_flexi_invoice_id: "42",
+        abra_flexi_invoice_code: "order-ord_1",
+        abra_flexi_recorded_payment_ids: ["pay_1"],
+      },
+    })
   })
 })

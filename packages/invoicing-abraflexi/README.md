@@ -50,7 +50,8 @@ plugins: [
 
 1. `payment.captured` fires (payment id in the event payload).
 2. Resolve the order linked to that payment.
-3. If `order.metadata.abra_flexi_invoice_id` is already set, stop — no duplicate invoice.
+3. If `order.metadata.abra_flexi_invoice_id` is already set, skip to step 7 — no
+   duplicate invoice, but payment recording still runs.
 4. Map the order to an Abra Flexi invoice payload (line items, customer, optional IČO/DIČ).
 5. Create the invoice in Abra Flexi. Transient failures (network, 5xx) are retried
    automatically by Medusa's workflow engine; 4xx failures (bad payload, auth) fail
@@ -76,10 +77,16 @@ plugins: [
   via a direct field write, not a linked bank record — see
   `docs/superpowers/research/2026-09-06-abra-flexi-payment-api-verification.md`
   for why, and what upgrading to a bank-record-based approach would need.
-- **Settlement-completeness / reconciliation.** Nothing here computes "is this
-  invoice fully paid" or cross-checks captured amounts against invoice totals
-  — that stays Abra Flexi's own concern. A periodic reconciliation job is a
-  documented stretch goal, not built.
+- **Settlement-completeness / reconciliation.** Payment status is _asserted_,
+  not derived: the first capture on an order writes Abra Flexi's "paid
+  manually" status onto the whole invoice, regardless of whether that capture
+  covered the full invoice total (e.g. a partial/split-tender payment).
+  Nothing here computes "is this invoice fully paid" or cross-checks captured
+  amounts against invoice totals — under the direct-field-write approach
+  (see the gap above), there isn't a partial-paid state to compute into. A
+  periodic reconciliation job, or moving to the bank-record-based approach
+  that lets Abra Flexi track partial settlement itself, is a documented
+  stretch goal, not built.
 - **Wire-format field names.** `datVyd`/`splatnost`/`mena`/customer fields are
   verified against Abra Flexi's public docs; the line-items shape
   (`polozkyFaktury`/`faktura-vydana-polozka`) is corroborated by a community
