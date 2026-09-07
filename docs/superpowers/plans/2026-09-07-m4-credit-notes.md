@@ -67,7 +67,7 @@ research (verified against Abra Flexi's own docs and this repo's installed
   construct for a step count determined by a runtime array length (the
   number of new refunds is only known once the list-refunds step has
   actually run) — you cannot `for`-loop over `WorkflowData` at workflow
-  *definition* time. This plan implements steps 4a/4b as **one step each**
+  _definition_ time. This plan implements steps 4a/4b as **one step each**
   that loops internally over every new refund in a single call (build +
   create per refund inside the loop, since payload-building is synchronous
   and cheap), and step 4c as one step that appends every newly-created
@@ -549,7 +549,10 @@ Create `packages/invoicing-abraflexi/src/core/__tests__/order-to-credit-note-map
 
 ```ts
 import { describe, it, expect } from "vitest"
-import { mapOrderToFullCreditNote, mapRefundToLumpSumCreditNote } from "../order-to-credit-note-mapper"
+import {
+  mapOrderToFullCreditNote,
+  mapRefundToLumpSumCreditNote,
+} from "../order-to-credit-note-mapper"
 import { CZ_VAT_RATE_BASIC } from "../../types"
 import type { OrderDTO } from "@medusajs/framework/types"
 
@@ -620,45 +623,65 @@ describe("mapOrderToFullCreditNote", () => {
 
 describe("mapRefundToLumpSumCreditNote", () => {
   it("produces a single line with quantity -1 and unitPrice equal to the refund amount", () => {
-    const payload = mapRefundToLumpSumCreditNote(baseOrder(), { vatPayer: false }, {
-      id: "ref_1",
-      amount: 150,
-    })
+    const payload = mapRefundToLumpSumCreditNote(
+      baseOrder(),
+      { vatPayer: false },
+      {
+        id: "ref_1",
+        amount: 150,
+      }
+    )
     expect(payload.lines).toEqual([
       { name: "Refund", quantity: -1, unitPrice: 150, vatRate: undefined },
     ])
   })
 
   it("incorporates the refund's note into the line name when present", () => {
-    const payload = mapRefundToLumpSumCreditNote(baseOrder(), { vatPayer: false }, {
-      id: "ref_1",
-      amount: 150,
-      note: "Damaged item",
-    })
+    const payload = mapRefundToLumpSumCreditNote(
+      baseOrder(),
+      { vatPayer: false },
+      {
+        id: "ref_1",
+        amount: 150,
+        note: "Damaged item",
+      }
+    )
     expect(payload.lines[0]!.name).toBe("Refund: Damaged item")
   })
 
   it("sets the credit-note external code from the order id and refund id", () => {
-    const payload = mapRefundToLumpSumCreditNote(baseOrder(), { vatPayer: false }, {
-      id: "ref_1",
-      amount: 150,
-    })
+    const payload = mapRefundToLumpSumCreditNote(
+      baseOrder(),
+      { vatPayer: false },
+      {
+        id: "ref_1",
+        amount: 150,
+      }
+    )
     expect(payload.externalCode).toBe("order-ord_123-credit-ref_1")
   })
 
   it("applies the basic VAT rate to the lump-sum line when vatPayer is true", () => {
-    const payload = mapRefundToLumpSumCreditNote(baseOrder(), { vatPayer: true }, {
-      id: "ref_1",
-      amount: 150,
-    })
+    const payload = mapRefundToLumpSumCreditNote(
+      baseOrder(),
+      { vatPayer: true },
+      {
+        id: "ref_1",
+        amount: 150,
+      }
+    )
     expect(payload.lines[0]!.vatRate).toBe(CZ_VAT_RATE_BASIC)
   })
 
   it("reuses the same customer/currency mapping as the original invoice", () => {
-    const payload = mapRefundToLumpSumCreditNote(baseOrder(), { vatPayer: false }, {
-      id: "ref_1",
-      amount: 150,
-    })
+    const payload = mapRefundToLumpSumCreditNote(
+      baseOrder(),
+      { vatPayer: false },
+      {
+        id: "ref_1",
+        amount: 150,
+      }
+    )
     expect(payload.currency).toBe("CZK")
     expect(payload.customer).toMatchObject({ name: "Jan Novák" })
   })
@@ -865,10 +888,9 @@ describe("listNewRefundsStepFn", () => {
     const listRefunds = vi.fn()
     const container = mockContainer({ payment: { listRefunds } })
 
-    const response = await listNewRefundsStepFn(
-      { paymentIds: [], recordedRefundIds: [] },
-      { container } as never
-    )
+    const response = await listNewRefundsStepFn({ paymentIds: [], recordedRefundIds: [] }, {
+      container,
+    } as never)
 
     expect(listRefunds).not.toHaveBeenCalled()
     expect(response.output).toEqual([])
@@ -889,16 +911,17 @@ describe("listNewRefundsStepFn", () => {
   })
 
   it("sorts remaining refunds oldest-first", async () => {
-    const listRefunds = vi.fn().mockResolvedValue([
-      refund({ id: "ref_new", created_at: new Date("2026-09-05") }),
-      refund({ id: "ref_old", created_at: new Date("2026-09-01") }),
-    ])
+    const listRefunds = vi
+      .fn()
+      .mockResolvedValue([
+        refund({ id: "ref_new", created_at: new Date("2026-09-05") }),
+        refund({ id: "ref_old", created_at: new Date("2026-09-01") }),
+      ])
     const container = mockContainer({ payment: { listRefunds } })
 
-    const response = await listNewRefundsStepFn(
-      { paymentIds: ["pay_1"], recordedRefundIds: [] },
-      { container } as never
-    )
+    const response = await listNewRefundsStepFn({ paymentIds: ["pay_1"], recordedRefundIds: [] }, {
+      container,
+    } as never)
 
     expect(response.output.map((r) => r.id)).toEqual(["ref_old", "ref_new"])
   })
@@ -921,9 +944,14 @@ describe("createCreditNotesForNewRefundsStepFn", () => {
   })
 
   it("builds a full-mirror payload for triggeredBy: order_canceled", async () => {
-    const createCreditNote = vi.fn().mockResolvedValue({ id: "1", code: "order-ord_1-credit-ref_1" })
+    const createCreditNote = vi
+      .fn()
+      .mockResolvedValue({ id: "1", code: "order-ord_1-credit-ref_1" })
     const container = mockContainer({
-      abraFlexi: { getClient: () => ({ createCreditNote }), getOptions: () => ({ vatPayer: false }) },
+      abraFlexi: {
+        getClient: () => ({ createCreditNote }),
+        getOptions: () => ({ vatPayer: false }),
+      },
     })
 
     await createCreditNotesForNewRefundsStepFn(
@@ -944,9 +972,14 @@ describe("createCreditNotesForNewRefundsStepFn", () => {
   })
 
   it("builds a lump-sum payload for triggeredBy: payment_refunded", async () => {
-    const createCreditNote = vi.fn().mockResolvedValue({ id: "1", code: "order-ord_1-credit-ref_1" })
+    const createCreditNote = vi
+      .fn()
+      .mockResolvedValue({ id: "1", code: "order-ord_1-credit-ref_1" })
     const container = mockContainer({
-      abraFlexi: { getClient: () => ({ createCreditNote }), getOptions: () => ({ vatPayer: false }) },
+      abraFlexi: {
+        getClient: () => ({ createCreditNote }),
+        getOptions: () => ({ vatPayer: false }),
+      },
     })
 
     await createCreditNotesForNewRefundsStepFn(
@@ -971,7 +1004,10 @@ describe("createCreditNotesForNewRefundsStepFn", () => {
       .mockResolvedValueOnce({ id: "1", code: "order-ord_1-credit-ref_1" })
       .mockResolvedValueOnce({ id: "2", code: "order-ord_1-credit-ref_2" })
     const container = mockContainer({
-      abraFlexi: { getClient: () => ({ createCreditNote }), getOptions: () => ({ vatPayer: false }) },
+      abraFlexi: {
+        getClient: () => ({ createCreditNote }),
+        getOptions: () => ({ vatPayer: false }),
+      },
     })
 
     const response = await createCreditNotesForNewRefundsStepFn(
@@ -994,7 +1030,10 @@ describe("createCreditNotesForNewRefundsStepFn", () => {
   it("rethrows a retryable AbraFlexiApiError so the workflow engine retries", async () => {
     const createCreditNote = vi.fn().mockRejectedValue(new AbraFlexiApiError(500, "boom", true))
     const container = mockContainer({
-      abraFlexi: { getClient: () => ({ createCreditNote }), getOptions: () => ({ vatPayer: false }) },
+      abraFlexi: {
+        getClient: () => ({ createCreditNote }),
+        getOptions: () => ({ vatPayer: false }),
+      },
     })
 
     await expect(
@@ -1011,9 +1050,14 @@ describe("createCreditNotesForNewRefundsStepFn", () => {
   })
 
   it("converts a non-retryable AbraFlexiApiError into a permanent step failure", async () => {
-    const createCreditNote = vi.fn().mockRejectedValue(new AbraFlexiApiError(400, "bad code", false))
+    const createCreditNote = vi
+      .fn()
+      .mockRejectedValue(new AbraFlexiApiError(400, "bad code", false))
     const container = mockContainer({
-      abraFlexi: { getClient: () => ({ createCreditNote }), getOptions: () => ({ vatPayer: false }) },
+      abraFlexi: {
+        getClient: () => ({ createCreditNote }),
+        getOptions: () => ({ vatPayer: false }),
+      },
     })
 
     await expect(
@@ -1056,10 +1100,9 @@ describe("persistRecordedRefundIdsStepFn", () => {
     const updateOrders = vi.fn().mockResolvedValue({})
     const container = mockContainer({ order: { updateOrders } })
 
-    const response = await persistRecordedRefundIdsStepFn(
-      { order, newRefundIds: ["ref_1"] },
-      { container } as never
-    )
+    const response = await persistRecordedRefundIdsStepFn({ order, newRefundIds: ["ref_1"] }, {
+      container,
+    } as never)
 
     expect(updateOrders).toHaveBeenCalledWith("ord_1", {
       metadata: { ...order.metadata, abra_flexi_recorded_refund_ids: ["ref_1"] },
@@ -1611,9 +1654,9 @@ with:
 In the "Wire-format field names" bullet, append after the existing last sentence:
 
 ```markdown
-  Separately, `typDokl: code:DOBROPIS` (credit notes, sub-project 3) carries
-  the same unverified-by-default caveat as `code:FAKTURA` — confirm both via
-  the live sandbox suite.
+Separately, `typDokl: code:DOBROPIS` (credit notes, sub-project 3) carries
+the same unverified-by-default caveat as `code:FAKTURA` — confirm both via
+the live sandbox suite.
 ```
 
 - [ ] **Step 6: Commit**
@@ -1647,7 +1690,7 @@ Expected: all green. This is the point the plan's Global Constraints call "Task 
 
 The existing mock server tells apart invoice-create vs. payment-record calls
 by body shape (both PUT to the same endpoint). `createCreditNote` adds two
-*more* distinct shapes to the same endpoint (create with `typDokl: DOBROPIS`,
+_more_ distinct shapes to the same endpoint (create with `typDokl: DOBROPIS`,
 then link with `vytvor-vazbu-dobropis`) — the mock needs two more counters so
 this test can assert on them without disturbing the two existing idempotency
 suites' `callCount()`/`paymentRecordCallCount()` usage.

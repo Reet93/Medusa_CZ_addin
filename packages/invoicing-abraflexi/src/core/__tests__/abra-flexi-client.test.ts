@@ -370,4 +370,3 @@ describe("AbraFlexiClient.createCreditNote", () => {
     ).rejects.toMatchObject({ name: "AbraFlexiApiError", status: 500, retryable: true })
   })
 })
-

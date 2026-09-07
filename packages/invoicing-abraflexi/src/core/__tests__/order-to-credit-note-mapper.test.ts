@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest"
-import { mapOrderToFullCreditNote, mapRefundToLumpSumCreditNote } from "../order-to-credit-note-mapper"
+import {
+  mapOrderToFullCreditNote,
+  mapRefundToLumpSumCreditNote,
+} from "../order-to-credit-note-mapper"
 import { CZ_VAT_RATE_BASIC } from "../../types"
 import type { OrderDTO } from "@medusajs/framework/types"
 
@@ -70,45 +73,65 @@ describe("mapOrderToFullCreditNote", () => {
 
 describe("mapRefundToLumpSumCreditNote", () => {
   it("produces a single line with quantity -1 and unitPrice equal to the refund amount", () => {
-    const payload = mapRefundToLumpSumCreditNote(baseOrder(), { vatPayer: false }, {
-      id: "ref_1",
-      amount: 150,
-    })
+    const payload = mapRefundToLumpSumCreditNote(
+      baseOrder(),
+      { vatPayer: false },
+      {
+        id: "ref_1",
+        amount: 150,
+      }
+    )
     expect(payload.lines).toEqual([
       { name: "Refund", quantity: -1, unitPrice: 150, vatRate: undefined },
     ])
   })
 
   it("incorporates the refund's note into the line name when present", () => {
-    const payload = mapRefundToLumpSumCreditNote(baseOrder(), { vatPayer: false }, {
-      id: "ref_1",
-      amount: 150,
-      note: "Damaged item",
-    })
+    const payload = mapRefundToLumpSumCreditNote(
+      baseOrder(),
+      { vatPayer: false },
+      {
+        id: "ref_1",
+        amount: 150,
+        note: "Damaged item",
+      }
+    )
     expect(payload.lines[0]!.name).toBe("Refund: Damaged item")
   })
 
   it("sets the credit-note external code from the order id and refund id", () => {
-    const payload = mapRefundToLumpSumCreditNote(baseOrder(), { vatPayer: false }, {
-      id: "ref_1",
-      amount: 150,
-    })
+    const payload = mapRefundToLumpSumCreditNote(
+      baseOrder(),
+      { vatPayer: false },
+      {
+        id: "ref_1",
+        amount: 150,
+      }
+    )
     expect(payload.externalCode).toBe("order-ord_123-credit-ref_1")
   })
 
   it("applies the basic VAT rate to the lump-sum line when vatPayer is true", () => {
-    const payload = mapRefundToLumpSumCreditNote(baseOrder(), { vatPayer: true }, {
-      id: "ref_1",
-      amount: 150,
-    })
+    const payload = mapRefundToLumpSumCreditNote(
+      baseOrder(),
+      { vatPayer: true },
+      {
+        id: "ref_1",
+        amount: 150,
+      }
+    )
     expect(payload.lines[0]!.vatRate).toBe(CZ_VAT_RATE_BASIC)
   })
 
   it("reuses the same customer/currency mapping as the original invoice", () => {
-    const payload = mapRefundToLumpSumCreditNote(baseOrder(), { vatPayer: false }, {
-      id: "ref_1",
-      amount: 150,
-    })
+    const payload = mapRefundToLumpSumCreditNote(
+      baseOrder(),
+      { vatPayer: false },
+      {
+        id: "ref_1",
+        amount: 150,
+      }
+    )
     expect(payload.currency).toBe("CZK")
     expect(payload.customer).toMatchObject({ name: "Jan Novák" })
   })
