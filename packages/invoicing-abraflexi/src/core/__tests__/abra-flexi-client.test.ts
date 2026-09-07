@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { AbraFlexiClient, AbraFlexiApiError } from "../abra-flexi-client"
-import { ABRA_FLEXI_VAT_RATE_CODE_BASIC, ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY } from "../../types"
+import {
+  ABRA_FLEXI_VAT_RATE_CODE_BASIC,
+  ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY,
+} from "../../types"
 import type { AbraFlexiInvoicePayload } from "../../types"
 
 const opts = {
@@ -215,7 +218,12 @@ describe("AbraFlexiClient.recordPayment", () => {
     })
     await expect(
       new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "order-ord_123" })
-    ).rejects.toMatchObject({ name: "AbraFlexiApiError", status: 500, retryable: true, message: "boom" })
+    ).rejects.toMatchObject({
+      name: "AbraFlexiApiError",
+      status: 500,
+      retryable: true,
+      message: "boom",
+    })
   })
 
   it("throws a non-retryable AbraFlexiApiError on a 404 response (invoice not found)", async () => {

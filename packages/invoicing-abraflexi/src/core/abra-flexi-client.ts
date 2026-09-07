@@ -5,7 +5,10 @@ import type {
   AbraFlexiRecordPaymentPayload,
   AbraFlexiRecordPaymentResult,
 } from "../types.js"
-import { ABRA_FLEXI_VAT_RATE_CODE_BASIC, ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY } from "../types.js"
+import {
+  ABRA_FLEXI_VAT_RATE_CODE_BASIC,
+  ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY,
+} from "../types.js"
 
 export class AbraFlexiApiError extends Error {
   readonly name = "AbraFlexiApiError"

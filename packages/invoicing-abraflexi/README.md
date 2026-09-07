@@ -3,7 +3,7 @@
 Abra Flexi invoicing for MedusaJS 2.0 (medusa-cz). Listens for `payment.captured`,
 issues a Czech sales invoice in Abra Flexi, then marks it paid — both via durable,
 retried Medusa workflows. Idempotent — a second capture on an already-invoiced
-order creates no duplicate invoice, and a second capture with a *different*
+order creates no duplicate invoice, and a second capture with a _different_
 payment id (Medusa's split-tender case) records that payment too, without
 re-recording ones already seen.
 

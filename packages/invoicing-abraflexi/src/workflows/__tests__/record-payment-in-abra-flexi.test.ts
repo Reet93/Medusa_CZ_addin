@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest"
-import { recordPaymentStepFn, persistRecordedPaymentIdStepFn } from "../record-payment-in-abra-flexi"
+import {
+  recordPaymentStepFn,
+  persistRecordedPaymentIdStepFn,
+} from "../record-payment-in-abra-flexi"
 import { AbraFlexiApiError } from "../../core/abra-flexi-client"
 import type { OrderDTO } from "@medusajs/framework/types"
 
@@ -19,10 +22,9 @@ describe("recordPaymentStepFn", () => {
     const client = { recordPayment: vi.fn().mockResolvedValue({ id: "99" }) }
     const container = mockContainer({ abraFlexi: { getClient: () => client } })
 
-    const response = await recordPaymentStepFn(
-      { externalCode: "order-ord_1" },
-      { container } as never
-    )
+    const response = await recordPaymentStepFn({ externalCode: "order-ord_1" }, {
+      container,
+    } as never)
 
     expect(client.recordPayment).toHaveBeenCalledWith({ invoiceExternalCode: "order-ord_1" })
     expect(response.output).toEqual({ id: "99" })

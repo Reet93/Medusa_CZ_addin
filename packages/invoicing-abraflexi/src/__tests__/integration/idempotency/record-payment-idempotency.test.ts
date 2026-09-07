@@ -107,10 +107,7 @@ run({
 })
 
 function skippedSuite() {
-  describe.skip(
-    "Abra Flexi record-payment idempotency guard (DB-backed) -- skipped, DB_HOST not set",
-    () => {
-      it("requires DB_HOST/DB_USERNAME/DB_PASSWORD/DB_PORT env vars pointing at a real Postgres", () => {})
-    }
-  )
+  describe.skip("Abra Flexi record-payment idempotency guard (DB-backed) -- skipped, DB_HOST not set", () => {
+    it("requires DB_HOST/DB_USERNAME/DB_PASSWORD/DB_PORT env vars pointing at a real Postgres", () => {})
+  })
 }

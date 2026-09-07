@@ -115,7 +115,8 @@ export const recordPaymentInAbraFlexiWorkflow = createWorkflow(
     const result = transform({ resolved, recordedIds }, ({ resolved, recordedIds }) => ({
       recordedPaymentIds:
         recordedIds ??
-        ((resolved.order.metadata?.abra_flexi_recorded_payment_ids as string[] | undefined) ?? []),
+        (resolved.order.metadata?.abra_flexi_recorded_payment_ids as string[] | undefined) ??
+        [],
     }))
 
     return new WorkflowResponse(result)

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest"
-import { mapOrderToAbraFlexiInvoice, abraFlexiExternalCodeForOrder } from "../order-to-invoice-mapper"
+import {
+  mapOrderToAbraFlexiInvoice,
+  abraFlexiExternalCodeForOrder,
+} from "../order-to-invoice-mapper"
 import { CZ_VAT_RATE_BASIC } from "../../types"
 import type { OrderDTO } from "@medusajs/framework/types"
 
