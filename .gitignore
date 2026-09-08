@@ -29,4 +29,9 @@ coverage/
 !.env.example
 !.env.template
 !*.env.template
+
+# Exported env/credential dumps (e.g. Coolify API exports) — never commit
+backend_envs.json
+*_envs.json
+
 *.tsbuildinfo
