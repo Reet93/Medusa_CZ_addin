@@ -78,7 +78,7 @@ default:
   whenever `clientUrl` doesn't contain the substring `"localhost"`, and a
   plain (non-SSL) Postgres then hangs the connection pool for the full
   `hookTimeout` instead of failing fast (surfaces as `Knex: Timeout acquiring
-  a connection. The pool is probably full`, with zero trace of the attempt in
+a connection. The pool is probably full`, with zero trace of the attempt in
   `pg_stat_activity` — looks like a resource/config problem, isn't one).
   `ci.yml` already uses `localhost` and was never affected; only hit when
   running these tests by hand against a Postgres reached via its IP. Verified
