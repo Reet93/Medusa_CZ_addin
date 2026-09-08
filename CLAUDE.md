@@ -67,10 +67,23 @@ package's own opt-in suites).
 `test:integration` covers two different kinds of opt-in suite, both skipped by
 default:
 
-- **DB-backed** (currently: `invoicing-abraflexi`'s idempotency-guard test) —
-  needs `DB_HOST`/`DB_USERNAME`/`DB_PASSWORD`/`DB_PORT` pointing at a real
-  Postgres with `CREATEDB` rights; runs in CI against the `postgres:16-alpine`
-  service in `ci.yml`.
+- **DB-backed** (currently: `invoicing-abraflexi`'s 3 idempotency-guard tests —
+  invoice creation, credit notes, payment-status sync) — needs `DB_HOST`/
+  `DB_USERNAME`/`DB_PASSWORD`/`DB_PORT` pointing at a real Postgres with
+  `CREATEDB` rights; runs in CI against the `postgres:16-alpine` service in
+  `ci.yml`.
+  **`DB_HOST` must be the literal string `localhost`, not an IP like
+  `127.0.0.1`** — `@medusajs/test-utils`' `medusa-test-runner-utils/config.js`
+  force-enables `ssl: { rejectUnauthorized: false }` in the driver options
+  whenever `clientUrl` doesn't contain the substring `"localhost"`, and a
+  plain (non-SSL) Postgres then hangs the connection pool for the full
+  `hookTimeout` instead of failing fast (surfaces as `Knex: Timeout acquiring
+  a connection. The pool is probably full`, with zero trace of the attempt in
+  `pg_stat_activity` — looks like a resource/config problem, isn't one).
+  `ci.yml` already uses `localhost` and was never affected; only hit when
+  running these tests by hand against a Postgres reached via its IP. Verified
+  the hard way 2026-09-08 diagnosing a run against the Coolify deployment's
+  Postgres.
 - **Live sandbox** (Comgate/Packeta/Abra Flexi) — needs each provider's own
   real API credentials (`COMGATE_MERCHANT`/`SECRET`, `PACKETA_API_PASSWORD`/
   `ESHOP`, `ABRA_FLEXI_*`); deliberately **not** CI secrets in a public repo,
