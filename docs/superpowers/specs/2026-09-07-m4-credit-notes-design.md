@@ -320,17 +320,21 @@ live-sandbox test, before this ships, the same way the payment-sync
 research flagged its Option A/B business-process question rather than
 picking one silently:
 
-1. **Do returns/exchanges in this business's actual process end in a real
-   payment refund, or only in Medusa credit lines?** Verified from source
-   (research doc Part 2) that Medusa's own return/exchange/claim workflows
-   in this version never call `refundPayment`/`refundPaymentsWorkflow` —
-   they produce order-level "credit lines" instead, a different, non-money
-   ledger adjustment. If this business's RMA flow relies on the storefront
-   or admin return process alone (no separate manual "Refund payment"
-   click), **no credit note will be produced** under this design, silently,
-   because no `RefundDTO` ever exists to discover. This is a business-
-   process question, not a technical one — ask directly rather than
-   assume either way.
+1. **RESOLVED (2026-09-11, continued session) — decided against Medusa's
+   Returns/Exchanges feature; direct refund/cancel stays the RMA process.**
+   Jakub's call, made with the actual current plugin stack considered
+   (verified this session: Packeta's `createReturnFulfillment` and this
+   package's credit-note subscriber already both work correctly with
+   Returns too, so integration cost wasn't the deciding factor — customer
+   self-service and exchange support were, and at current volume aren't
+   worth the storefront UI work yet). Practical effect: this design's
+   original assumption holds cleanly — every refund is an explicit "Refund
+   payment" action, so `payment.refunded` always fires and a credit note is
+   always produced; the silent-no-credit-note risk this question originally
+   flagged (Returns settling via credit lines instead of a real refund)
+   never gets exercised. Revisit only if return/exchange volume ever makes
+   the manual process painful enough to reconsider — see `local.md`'s
+   2026-09-11-continued session update for the full comparison that led here.
 2. **Does `typDokl: "code:DOBROPIS"` exist by default in this business's
    Abra Flexi company?** Documented as a standard document-type code, but
    this session found no confirmation it's present without setup in every
@@ -356,12 +360,14 @@ picking one silently:
 
 - **Sub-project 4 — general ledger / bookkeeping entries.** Unrelated
   subsystem, unchanged scope boundary from the original decomposition.
-- **Returns/exchanges/claims as a direct trigger.** Not built here — see
-  Open question 1. If the answer turns out to be "yes, this business's RMA
-  process does call the real refund-payment action," no new sub-project is
-  needed (this design already handles it via `payment.refunded`); if the
-  answer is "no, only credit lines," that's a distinct future sub-project
-  (reacting to Medusa's credit-line events instead/also), not a small
+- **Returns/exchanges/claims as a direct trigger.** Not built — see Open
+  question 1, resolved: RMA stays direct refund/cancel, so this was never
+  needed. Revisit only if that decision changes; if it does and the RMA
+  process ends up using Medusa's real refund-payment action, no new
+  sub-project is needed (this design already handles it via
+  `payment.refunded`) — only if it settles via credit lines instead would
+  that be a distinct future sub-project (reacting to Medusa's credit-line
+  events instead/also), not a small
   addition to this one.
 - **Automatic reconciliation of orphaned/unlinked Abra Flexi credit
   notes.** Explicit stretch goal, not this sub-project's job — see Open
