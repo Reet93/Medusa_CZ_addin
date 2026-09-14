@@ -45,11 +45,13 @@ discipline — RED/GREEN/REFACTOR, Conventional Commits, `git commit -s` for the
 ## Task 1: Comgate — map the active locale to Comgate's `lang` parameter
 
 **Files:**
+
 - Modify: `packages/payment-comgate/src/types.ts`
 - Modify: `packages/payment-comgate/src/services/comgate-provider.ts`
 - Modify: `packages/payment-comgate/src/services/__tests__/comgate-provider.test.ts`
 
 **Interfaces:**
+
 - Produces: `initiatePayment` now reads `input.data?.locale` and forwards a `lang: "cs" | "en"`
   field to `ComgateClient.create()`. No change to the method's own signature or return shape.
 
@@ -60,49 +62,49 @@ Add to the existing `describe("initiatePayment", ...)` block in
 test in that block exactly — same mock setup already at the top of the file, unchanged):
 
 ```ts
-  it("maps locale 'cs' to Comgate lang 'cs'", async () => {
-    create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
-    const provider = makeProvider()
-    await provider.initiatePayment({
-      amount: 10,
-      currency_code: "czk",
-      data: { session_id: "ps_1", locale: "cs" },
-    } as never)
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ lang: "cs" }))
-  })
+it("maps locale 'cs' to Comgate lang 'cs'", async () => {
+  create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
+  const provider = makeProvider()
+  await provider.initiatePayment({
+    amount: 10,
+    currency_code: "czk",
+    data: { session_id: "ps_1", locale: "cs" },
+  } as never)
+  expect(create).toHaveBeenCalledWith(expect.objectContaining({ lang: "cs" }))
+})
 
-  it("maps locale 'en' to Comgate lang 'en'", async () => {
-    create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
-    const provider = makeProvider()
-    await provider.initiatePayment({
-      amount: 10,
-      currency_code: "czk",
-      data: { session_id: "ps_1", locale: "en" },
-    } as never)
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ lang: "en" }))
-  })
+it("maps locale 'en' to Comgate lang 'en'", async () => {
+  create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
+  const provider = makeProvider()
+  await provider.initiatePayment({
+    amount: 10,
+    currency_code: "czk",
+    data: { session_id: "ps_1", locale: "en" },
+  } as never)
+  expect(create).toHaveBeenCalledWith(expect.objectContaining({ lang: "en" }))
+})
 
-  it("defaults to lang 'cs' when locale is absent", async () => {
-    create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
-    const provider = makeProvider()
-    await provider.initiatePayment({
-      amount: 10,
-      currency_code: "czk",
-      data: { session_id: "ps_1" },
-    } as never)
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ lang: "cs" }))
-  })
+it("defaults to lang 'cs' when locale is absent", async () => {
+  create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
+  const provider = makeProvider()
+  await provider.initiatePayment({
+    amount: 10,
+    currency_code: "czk",
+    data: { session_id: "ps_1" },
+  } as never)
+  expect(create).toHaveBeenCalledWith(expect.objectContaining({ lang: "cs" }))
+})
 
-  it("defaults to lang 'cs' for an unsupported locale value rather than forwarding it as-is", async () => {
-    create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
-    const provider = makeProvider()
-    await provider.initiatePayment({
-      amount: 10,
-      currency_code: "czk",
-      data: { session_id: "ps_1", locale: "de" },
-    } as never)
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ lang: "cs" }))
-  })
+it("defaults to lang 'cs' for an unsupported locale value rather than forwarding it as-is", async () => {
+  create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
+  const provider = makeProvider()
+  await provider.initiatePayment({
+    amount: 10,
+    currency_code: "czk",
+    data: { session_id: "ps_1", locale: "de" },
+  } as never)
+  expect(create).toHaveBeenCalledWith(expect.objectContaining({ lang: "cs" }))
+})
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -180,9 +182,11 @@ git push origin master
 ## Task 2: Storefront — send the active locale when initiating a Comgate payment session
 
 **Files:**
+
 - Modify: `apps/storefront/src/modules/checkout/components/payment/index.tsx`
 
 **Interfaces:**
+
 - Consumes: `getLocale` from `@lib/data/locale-actions` (existing server action, already used
   the same way — awaited directly from a client component — in `cart.ts`'s own internals).
 
@@ -205,19 +209,19 @@ payment-session call (the one gated by `if (!checkActiveSession)`, **not** the e
 matters here) from:
 
 ```ts
-        await initiatePaymentSession(cart, {
-          provider_id: selectedPaymentMethod,
-        })
+await initiatePaymentSession(cart, {
+  provider_id: selectedPaymentMethod,
+})
 ```
 
 to:
 
 ```ts
-        const locale = await getLocale()
-        await initiatePaymentSession(cart, {
-          provider_id: selectedPaymentMethod,
-          data: { locale: locale ?? undefined },
-        })
+const locale = await getLocale()
+await initiatePaymentSession(cart, {
+  provider_id: selectedPaymentMethod,
+  data: { locale: locale ?? undefined },
+})
 ```
 
 - [ ] **Step 3: Manual QA**
@@ -243,9 +247,11 @@ git commit -s -m "feat(storefront): send active locale to Comgate on payment ses
 ## Task 3: Packeta widget — follow the active locale
 
 **Files:**
+
 - Modify: `apps/storefront/src/modules/checkout/components/packeta-pickup-point/index.tsx`
 
 **Interfaces:**
+
 - Consumes: `getLocale` from `@lib/data/locale-actions`; `pickPacketaPoint` (existing,
   unchanged signature — `apps/storefront/src/lib/packeta.ts`).
 
@@ -290,6 +296,7 @@ git commit -s -m "feat(storefront): Packeta pickup-point widget follows the acti
 ## Task 4: Regression pass and handover note
 
 **Files:**
+
 - Modify: `mente-eshop/local.md`
 
 - [ ] **Step 1: Run the full local check sequence in both repos**
