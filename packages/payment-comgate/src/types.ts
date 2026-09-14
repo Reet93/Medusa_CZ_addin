@@ -25,6 +25,7 @@ export interface ComgateCreateInput {
   url_paid?: string
   url_cancelled?: string
   url_pending?: string
+  lang?: string // Comgate's hosted payment page language, e.g. "cs" | "en"
 }
 
 export interface ComgateCreateResult {

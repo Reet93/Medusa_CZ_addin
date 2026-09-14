@@ -7,6 +7,12 @@ import {
 import { ComgateClient, toMinorUnits } from "../core/comgate-client.js"
 import type { ComgateOptions, ComgateSessionData, ComgateStatus } from "../types.js"
 
+const SUPPORTED_COMGATE_LANGS = new Set(["cs", "en"])
+
+function toComgateLang(locale: unknown): string {
+  return typeof locale === "string" && SUPPORTED_COMGATE_LANGS.has(locale) ? locale : "cs"
+}
+
 class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
   static identifier = "comgate"
 
@@ -68,6 +74,7 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
       preauth: this.capture_ === "manual",
       method: this.options_.method ?? "ALL",
       country: this.options_.country ?? "CZ",
+      lang: toComgateLang(input.data?.locale),
     })
     const data: ComgateSessionData = { transId: res.transId, redirect_url: res.redirect }
     return { id: res.transId, data }

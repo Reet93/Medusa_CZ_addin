@@ -43,6 +43,50 @@ describe("initiatePayment", () => {
       expect.objectContaining({ price: 1000, curr: "CZK", prepareOnly: true })
     )
   })
+
+  it("maps locale 'cs' to Comgate lang 'cs'", async () => {
+    create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
+    const provider = makeProvider()
+    await provider.initiatePayment({
+      amount: 10,
+      currency_code: "czk",
+      data: { session_id: "ps_1", locale: "cs" },
+    } as never)
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ lang: "cs" }))
+  })
+
+  it("maps locale 'en' to Comgate lang 'en'", async () => {
+    create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
+    const provider = makeProvider()
+    await provider.initiatePayment({
+      amount: 10,
+      currency_code: "czk",
+      data: { session_id: "ps_1", locale: "en" },
+    } as never)
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ lang: "en" }))
+  })
+
+  it("defaults to lang 'cs' when locale is absent", async () => {
+    create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
+    const provider = makeProvider()
+    await provider.initiatePayment({
+      amount: 10,
+      currency_code: "czk",
+      data: { session_id: "ps_1" },
+    } as never)
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ lang: "cs" }))
+  })
+
+  it("defaults to lang 'cs' for an unsupported locale value rather than forwarding it as-is", async () => {
+    create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
+    const provider = makeProvider()
+    await provider.initiatePayment({
+      amount: 10,
+      currency_code: "czk",
+      data: { session_id: "ps_1", locale: "de" },
+    } as never)
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ lang: "cs" }))
+  })
 })
 
 describe("getPaymentStatus maps Comgate→Medusa", () => {
