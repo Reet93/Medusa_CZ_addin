@@ -117,6 +117,31 @@ export async function persistInvoiceIdStepFn(
 }
 const persistInvoiceIdStep = createStep("persist-abra-flexi-invoice-id", persistInvoiceIdStepFn)
 
+export const ABRA_FLEXI_INVOICE_CREATED = "abra_flexi.invoice_created"
+
+// Lets the shop act once the invoice exists (e.g. send the order confirmation with the PDF
+// attached). Emitted only on the branch that creates the invoice, never for an order that
+// already had one, so a retried payment.captured/order.placed does not re-announce it.
+export async function emitInvoiceCreatedStepFn(
+  input: { orderId: string; invoice: AbraFlexiInvoiceResult },
+  { container }: StepCtx
+): Promise<StepResponse<void>> {
+  const eventBus = container.resolve(Modules.EVENT_BUS)
+  await eventBus.emit({
+    name: ABRA_FLEXI_INVOICE_CREATED,
+    data: {
+      order_id: input.orderId,
+      invoice_id: input.invoice.id,
+      invoice_code: input.invoice.code,
+    },
+  })
+  return new StepResponse(undefined)
+}
+const emitInvoiceCreatedStep = createStep(
+  "emit-abra-flexi-invoice-created",
+  emitInvoiceCreatedStepFn
+)
+
 export const createInvoiceInAbraFlexiWorkflow = createWorkflow(
   "create-invoice-in-abra-flexi",
   (input: CreateInvoiceInAbraFlexiInput) => {
@@ -133,7 +158,10 @@ export const createInvoiceInAbraFlexiWorkflow = createWorkflow(
     ).then(() => {
       const payload = mapOrderToPayloadStep(resolved)
       const created = createInvoiceStep(payload)
-      return persistInvoiceIdStep({ order: resolved.order, invoice: created })
+      const persisted = persistInvoiceIdStep({ order: resolved.order, invoice: created })
+      const orderId = transform({ resolved }, ({ resolved }) => resolved.order.id)
+      emitInvoiceCreatedStep({ orderId, invoice: persisted })
+      return persisted
     })
 
     const result = transform(

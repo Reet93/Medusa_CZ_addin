@@ -4,6 +4,7 @@ import {
   mapOrderToPayloadStepFn,
   createInvoiceStepFn,
   persistInvoiceIdStepFn,
+  emitInvoiceCreatedStepFn,
 } from "../create-invoice-in-abra-flexi"
 import { AbraFlexiApiError } from "../../core/abra-flexi-client"
 import type { OrderDTO } from "@medusajs/framework/types"
@@ -131,6 +132,23 @@ describe("persistInvoiceIdStepFn", () => {
         abra_flexi_invoice_id: "1",
         abra_flexi_invoice_code: "order-ord_1",
       },
+    })
+  })
+})
+
+describe("emitInvoiceCreatedStepFn", () => {
+  it("emits abra_flexi.invoice_created with the order and invoice ids", async () => {
+    const emit = vi.fn().mockResolvedValue(undefined)
+    const container = mockContainer({ event_bus: { emit } })
+
+    await emitInvoiceCreatedStepFn(
+      { orderId: "ord_1", invoice: { id: "1", code: "order-ord_1" } },
+      { container } as never
+    )
+
+    expect(emit).toHaveBeenCalledWith({
+      name: "abra_flexi.invoice_created",
+      data: { order_id: "ord_1", invoice_id: "1", invoice_code: "order-ord_1" },
     })
   })
 })

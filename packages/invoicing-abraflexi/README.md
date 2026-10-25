@@ -85,6 +85,15 @@ plugins: [
 14. Append each newly recorded refund id to
     `order.metadata.abra_flexi_recorded_refund_ids`.
 
+## Events emitted
+
+| Event | When | Payload |
+| --- | --- | --- |
+| `abra_flexi.invoice_created` (`ABRA_FLEXI_INVOICE_CREATED`) | After an invoice is created and its id saved to `order.metadata`. Not emitted when the order already had an invoice. | `{ order_id, invoice_id, invoice_code }` |
+
+Subscribe to it to act once the invoice exists, e.g. send the order confirmation with the
+invoice PDF attached.
+
 ## Known gaps (by design, deferred)
 
 - **Reduced/mixed VAT rates.** Only the basic 21% rate is supported, and only once

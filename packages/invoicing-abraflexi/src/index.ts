@@ -3,6 +3,7 @@ export { ABRA_FLEXI_MODULE } from "./modules/abra-flexi/index.js"
 export * from "./types.js"
 export {
   createInvoiceInAbraFlexiWorkflow,
+  ABRA_FLEXI_INVOICE_CREATED,
   type CreateInvoiceInAbraFlexiInput,
 } from "./workflows/create-invoice-in-abra-flexi.js"
 export {
