@@ -64,7 +64,7 @@ describe("mapOrderToPayloadStepFn", () => {
     const response = await mapOrderToPayloadStepFn({ order }, { container } as never)
 
     expect(response.output.vatPayer).toBe(true)
-    expect(response.output.externalCode).toBe("order-ord_1")
+    expect(response.output.externalCode).toBe("ext:medusa-order:ord_1")
   })
 })
 

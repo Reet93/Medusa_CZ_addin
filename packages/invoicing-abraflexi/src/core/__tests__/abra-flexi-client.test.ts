@@ -15,7 +15,7 @@ const opts = {
 }
 
 const payload: AbraFlexiInvoicePayload = {
-  externalCode: "order-ord_123",
+  externalCode: "ext:medusa-order:ord_123",
   currency: "CZK",
   issueDate: "2026-09-03",
   dueDate: "2026-09-17",
@@ -69,7 +69,7 @@ describe("AbraFlexiClient.createInvoice", () => {
     const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
     const body = JSON.parse(call[1].body)
     const invoice = body.winstrom["faktura-vydana"]
-    expect(invoice.id).toBe("code:order-ord_123")
+    expect(invoice.id).toBe("ext:medusa-order:ord_123")
     expect(invoice.datVyd).toBe("2026-09-03")
     expect(invoice.splatnost).toBe("2026-09-17")
     expect(invoice.mena).toBe("code:CZK")
@@ -78,6 +78,17 @@ describe("AbraFlexiClient.createInvoice", () => {
     expect(invoice.mesto).toBe("Praha")
     expect(invoice.psc).toBe("11000")
     expect(invoice.stat).toBe("code:CZ")
+  })
+
+  // Flexi appends line items on an upsert by default; a retried PUT for the same
+  // order must replace them, not duplicate them (seen live on the reet-server Flexi).
+  it("replaces the invoice lines on every write", async () => {
+    mockFetchOnce(201, { winstrom: { success: true, results: [{ id: "1" }] } })
+    await new AbraFlexiClient(opts).createInvoice(payload)
+    const body = JSON.parse(
+      (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1].body
+    )
+    expect(body.winstrom["faktura-vydana"]["polozkyFaktury@removeAll"]).toBe("true")
   })
 
   it("omits ic/dic when not provided, and includes them when present", async () => {
@@ -128,7 +139,7 @@ describe("AbraFlexiClient.createInvoice", () => {
   it("resolves with the numeric id and our external code", async () => {
     mockFetchOnce(201, { winstrom: { success: true, results: [{ id: "12345" }] } })
     const result = await new AbraFlexiClient(opts).createInvoice(payload)
-    expect(result).toEqual({ id: "12345", code: "order-ord_123" })
+    expect(result).toEqual({ id: "12345", code: "ext:medusa-order:ord_123" })
   })
 
   it("throws a retryable AbraFlexiApiError on a 5xx response", async () => {
@@ -184,7 +195,7 @@ describe("AbraFlexiClient.recordPayment", () => {
   it("PUTs to the faktura-vydana collection URL with Basic auth", async () => {
     mockFetchOnce(200, { winstrom: { success: true, results: [{ id: "1" }] } })
     const client = new AbraFlexiClient(opts)
-    await client.recordPayment({ invoiceExternalCode: "order-ord_123" })
+    await client.recordPayment({ invoiceExternalCode: "ext:medusa-order:ord_123" })
     const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
     expect(call[0]).toBe("https://demo.flexibee.eu:5434/c/demo_company/faktura-vydana.json")
     expect(call[1].method).toBe("PUT")
@@ -196,19 +207,21 @@ describe("AbraFlexiClient.recordPayment", () => {
 
   it("sends only the invoice id and the manual-paid status code", async () => {
     mockFetchOnce(200, { winstrom: { success: true, results: [{ id: "1" }] } })
-    await new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "order-ord_123" })
+    await new AbraFlexiClient(opts).recordPayment({
+      invoiceExternalCode: "ext:medusa-order:ord_123",
+    })
     const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
     const body = JSON.parse(call[1].body)
     expect(body.winstrom["faktura-vydana"]).toEqual({
-      id: "code:order-ord_123",
-      stavUhrK: `code:${ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY}`,
+      id: "ext:medusa-order:ord_123",
+      stavUhrK: "stavUhr.uhrazenoRucne",
     })
   })
 
   it("resolves with the numeric id", async () => {
     mockFetchOnce(200, { winstrom: { success: true, results: [{ id: "42" }] } })
     const result = await new AbraFlexiClient(opts).recordPayment({
-      invoiceExternalCode: "order-ord_123",
+      invoiceExternalCode: "ext:medusa-order:ord_123",
     })
     expect(result).toEqual({ id: "42" })
   })
@@ -218,7 +231,7 @@ describe("AbraFlexiClient.recordPayment", () => {
       winstrom: { success: false, results: [{ id: "0", errors: [{ message: "boom" }] }] },
     })
     await expect(
-      new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "order-ord_123" })
+      new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "ext:medusa-order:ord_123" })
     ).rejects.toMatchObject({
       name: "AbraFlexiApiError",
       status: 500,
@@ -235,7 +248,7 @@ describe("AbraFlexiClient.recordPayment", () => {
       },
     })
     await expect(
-      new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "order-ord_123" })
+      new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "ext:medusa-order:ord_123" })
     ).rejects.toMatchObject({
       name: "AbraFlexiApiError",
       status: 404,
@@ -247,7 +260,7 @@ describe("AbraFlexiClient.recordPayment", () => {
   it("throws a retryable error on a network failure", async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error("ECONNRESET")) as unknown as typeof fetch
     await expect(
-      new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "order-ord_123" })
+      new AbraFlexiClient(opts).recordPayment({ invoiceExternalCode: "ext:medusa-order:ord_123" })
     ).rejects.toMatchObject({ name: "AbraFlexiApiError", status: 0, retryable: true })
   })
 })
@@ -259,8 +272,8 @@ describe("AbraFlexiClient.createCreditNote", () => {
   })
 
   const creditNotePayload: AbraFlexiCreditNotePayload = {
-    externalCode: "order-ord_123-credit-ref_1",
-    originalInvoiceExternalCode: "order-ord_123",
+    externalCode: "ext:medusa-credit:ord_123:ref_1",
+    originalInvoiceExternalCode: "ext:medusa-order:ord_123",
     currency: "CZK",
     issueDate: "2026-09-07",
     dueDate: "2026-09-21",
@@ -287,7 +300,7 @@ describe("AbraFlexiClient.createCreditNote", () => {
     await new AbraFlexiClient(opts).createCreditNote(creditNotePayload)
     const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls
     const record = JSON.parse(calls[0]![1].body).winstrom["faktura-vydana"]
-    expect(record.id).toBe("code:order-ord_123-credit-ref_1")
+    expect(record.id).toBe("ext:medusa-credit:ord_123:ref_1")
     expect(record.typDokl).toBe(`code:${ABRA_FLEXI_DOCUMENT_TYPE_CODE_CREDIT_NOTE}`)
     expect(record.mena).toBe("code:CZK")
     expect(record.polozkyFaktury[0]["faktura-vydana-polozka"]).toEqual({
@@ -304,8 +317,8 @@ describe("AbraFlexiClient.createCreditNote", () => {
     const calls = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls
     const secondBody = JSON.parse(calls[1]![1].body)
     expect(secondBody.winstrom["faktura-vydana"]).toEqual({
-      id: "code:order-ord_123-credit-ref_1",
-      "vytvor-vazbu-dobropis": { dobropisovanyDokl: "code:order-ord_123" },
+      id: "ext:medusa-credit:ord_123:ref_1",
+      "vytvor-vazbu-dobropis": { dobropisovanyDokl: "ext:medusa-order:ord_123" },
     })
   })
 
@@ -313,7 +326,7 @@ describe("AbraFlexiClient.createCreditNote", () => {
     mockFetchOnce(201, { winstrom: { success: true, results: [{ id: "555" }] } })
     mockFetchOnce(200, { winstrom: { success: true, results: [{ id: "555" }] } })
     const result = await new AbraFlexiClient(opts).createCreditNote(creditNotePayload)
-    expect(result).toEqual({ id: "555", code: "order-ord_123-credit-ref_1" })
+    expect(result).toEqual({ id: "555", code: "ext:medusa-credit:ord_123:ref_1" })
   })
 
   it("does not attempt the link PUT when the create PUT fails, and throws its error as-is", async () => {
@@ -355,7 +368,7 @@ describe("AbraFlexiClient.createCreditNote", () => {
       status: 400,
       retryable: false,
       message: expect.stringContaining(
-        'credit note "order-ord_123-credit-ref_1" (id "555") was created but linking it to invoice "order-ord_123" failed: already linked to another document'
+        'credit note "ext:medusa-credit:ord_123:ref_1" (id "555") was created but linking it to invoice "ext:medusa-order:ord_123" failed: already linked to another document'
       ),
     })
   })
@@ -368,5 +381,40 @@ describe("AbraFlexiClient.createCreditNote", () => {
     await expect(
       new AbraFlexiClient(opts).createCreditNote(creditNotePayload)
     ).rejects.toMatchObject({ name: "AbraFlexiApiError", status: 500, retryable: true })
+  })
+})
+
+describe("AbraFlexiClient.getInvoicePdf", () => {
+  it("GETs /c/<company>/faktura-vydana/<id>.pdf with Basic auth and returns the bytes", async () => {
+    const pdf = Buffer.from("%PDF-1.4 test")
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      arrayBuffer: async () => pdf.buffer.slice(pdf.byteOffset, pdf.byteOffset + pdf.length),
+    })
+    const client = new AbraFlexiClient({ ...opts, fetchFn: fetchFn as unknown as typeof fetch })
+
+    const result = await client.getInvoicePdf("42")
+
+    expect(fetchFn).toHaveBeenCalledWith(
+      "https://demo.flexibee.eu:5434/c/demo_company/faktura-vydana/42.pdf",
+      {
+        method: "GET",
+        headers: {
+          Authorization: "Basic " + Buffer.from("winstrom:winstrom").toString("base64"),
+          Accept: "application/pdf",
+        },
+      }
+    )
+    expect(result.toString()).toBe("%PDF-1.4 test")
+  })
+
+  it("throws AbraFlexiApiError on a non-2xx response", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue({ ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(0) })
+    const client = new AbraFlexiClient({ ...opts, fetchFn: fetchFn as unknown as typeof fetch })
+
+    await expect(client.getInvoicePdf("42")).rejects.toBeInstanceOf(AbraFlexiApiError)
   })
 })

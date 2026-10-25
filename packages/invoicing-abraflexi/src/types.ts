@@ -95,7 +95,12 @@ export const ABRA_FLEXI_VAT_RATE_CODE_BASIC = "typSzbDph.dphZakl"
 // for both options and why. Swapping to a `banka`-based implementation later
 // only touches AbraFlexiClient.recordPayment's internals below, not the
 // workflow that calls it.
-export const ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY = "stavUhr.paidRucne"
+//
+// It is an enum value, sent as-is -- not a `code:` reference. Verified live against
+// ABRA Flexi 2026.6.3 (2026-10-25): `code:stavUhr.uhrazenoRucne` and the earlier
+// `stavUhr.paidRucne` are both rejected ("Stav úhrady lze jen odstranit nebo nastavit
+// na 'stavUhr.uhrazenoRucne'"); the plain value is accepted and shows "Uhrazeno (ručně)".
+export const ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY = "stavUhr.uhrazenoRucne"
 
 // Abra Flexi's document-type code for a credit note (dobropis / opravný daňový
 // doklad), written as `typDokl` on the same faktura-vydana.json endpoint

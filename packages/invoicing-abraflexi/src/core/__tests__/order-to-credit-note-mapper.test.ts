@@ -55,7 +55,7 @@ describe("mapOrderToFullCreditNote", () => {
 
   it("sets the credit-note external code from the order id and refund id", () => {
     const payload = mapOrderToFullCreditNote(baseOrder(), { vatPayer: false }, "ref_1")
-    expect(payload.externalCode).toBe("order-ord_123-credit-ref_1")
+    expect(payload.externalCode).toBe("ext:medusa-credit:ord_123:ref_1")
   })
 
   it("keeps the vatPayer gating identical to mapOrderToAbraFlexiInvoice", () => {
@@ -108,7 +108,7 @@ describe("mapRefundToLumpSumCreditNote", () => {
         amount: 150,
       }
     )
-    expect(payload.externalCode).toBe("order-ord_123-credit-ref_1")
+    expect(payload.externalCode).toBe("ext:medusa-credit:ord_123:ref_1")
   })
 
   it("applies the basic VAT rate to the lump-sum line when vatPayer is true", () => {

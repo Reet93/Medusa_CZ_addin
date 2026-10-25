@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import AbraFlexiModuleService from "../service"
 import { AbraFlexiClient } from "../../../core/abra-flexi-client"
 
@@ -19,5 +19,15 @@ describe("AbraFlexiModuleService", () => {
   it("hands out a configured AbraFlexiClient", () => {
     const service = new AbraFlexiModuleService({} as never, options)
     expect(service.getClient()).toBeInstanceOf(AbraFlexiClient)
+  })
+
+  it("getInvoicePdf delegates to the client", async () => {
+    const service = new AbraFlexiModuleService({} as never, options)
+    const spy = vi
+      .spyOn(AbraFlexiClient.prototype, "getInvoicePdf")
+      .mockResolvedValue(Buffer.from("%PDF"))
+
+    await expect(service.getInvoicePdf("42")).resolves.toEqual(Buffer.from("%PDF"))
+    expect(spy).toHaveBeenCalledWith("42")
   })
 })

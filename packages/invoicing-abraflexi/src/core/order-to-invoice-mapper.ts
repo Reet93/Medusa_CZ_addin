@@ -11,12 +11,17 @@ function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
+// Flexi identifiers for our documents. These are Flexi *external ids* (`ext:<prefix>:<value>`),
+// sent as the record `id`, not `code:` values: a document's `kod` ("Interní číslo") is capped
+// at 20 characters, which `order-<medusa order id>` (38) exceeds -- Flexi rejected every
+// invoice (found on the reet-server instance, 2026-10-25). With an external id, Flexi numbers
+// the document from its own series (e.g. VF1-0001/2026) and still upserts on a repeated PUT.
 export function abraFlexiExternalCodeForOrder(orderId: string): string {
-  return `order-${orderId}`
+  return `ext:medusa-order:${orderId}`
 }
 
 export function creditNoteExternalCodeForRefund(orderId: string, refundId: string): string {
-  return `order-${orderId}-credit-${refundId}`
+  return `ext:medusa-credit:${orderId}:${refundId}`
 }
 
 export function mapOrderToAbraFlexiInvoice(

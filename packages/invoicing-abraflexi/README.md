@@ -133,14 +133,19 @@ invoice PDF attached.
   verified against Abra Flexi's public docs; the line-items shape
   (`polozkyFaktury`/`faktura-vydana-polozka`) is corroborated by a community
   reference but has no first-party JSON example for this evidence type.
-  Separately, the generated `externalCode` (`order-<id>`, sent as the record's
-  `id` field prefixed `code:`) is roughly 32 characters for a real Medusa order
-  id — Abra Flexi's `kod` field, which that `code:` prefix addresses, has
-  undocumented-here length and allowed-charset constraints, also unverified.
-  Run `pnpm --filter @medusa-cz/invoicing-abraflexi test:integration` against a
-  real sandbox instance (set `ABRA_FLEXI_*` env vars) before relying on either
-  of these in production, and fix up field names / the external-code format
-  here if the sandbox disagrees.
+  **Document identifiers (verified live 2026-10-25, ABRA Flexi 2026.6.3).** The sandbox
+  did disagree with the original `code:order-<id>` scheme: `kod` ("Interní číslo") is
+  capped at 20 characters and every real invoice was rejected. Documents are now
+  addressed by Flexi _external ids_ sent as the record `id`:
+  `ext:medusa-order:<order id>` for the invoice and
+  `ext:medusa-credit:<order id>:<refund id>` for credit notes. Flexi numbers the document
+  from its own series (e.g. `VF1-0001/2026`), a repeated PUT updates instead of duplicating,
+  and every write sends `polozkyFaktury@removeAll: "true"` so a retry replaces the lines
+  instead of appending them. Read one back with the filter form
+  `/faktura-vydana/(id = 'ext:...').json`. The manual-paid status is the plain enum value
+  `stavUhr.uhrazenoRucne` (not `code:`), and a credit-note link shows as
+  `dobropisovano: "true"` on the invoice and in `/vazby` (Flexi does not expose
+  `dobropisovanyDokl` on read). All four cases are covered by `test:integration`.
   Separately, `typDokl: code:DOBROPIS` (credit notes, sub-project 3) carries
   the same unverified-by-default caveat as `code:FAKTURA` — confirm both via
   the live sandbox suite.

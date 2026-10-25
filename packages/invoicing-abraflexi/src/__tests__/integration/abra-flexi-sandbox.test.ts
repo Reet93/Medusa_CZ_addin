@@ -19,7 +19,7 @@ const run = baseUrl && company && username && password ? describe : describe.ski
 async function fetchStavUhrK(externalCode: string): Promise<string | undefined> {
   const auth = "Basic " + Buffer.from(`${username}:${password}`).toString("base64")
   const res = await fetch(
-    `${baseUrl}/c/${company}/faktura-vydana/code:${encodeURIComponent(externalCode)}.json?detail=full`,
+    `${baseUrl}/c/${company}/faktura-vydana/(id = '${externalCode}').json?detail=full`,
     { headers: { Authorization: auth } }
   )
   const body = (await res.json()) as {
@@ -35,16 +35,20 @@ async function fetchStavUhrK(externalCode: string): Promise<string | undefined> 
 // docs/superpowers/research/2026-09-07-abra-flexi-credit-notes-api-verification.md
 // Part 1's XML example -- unchanged in JSON, same as this file's existing
 // fetchStavUhrK helper does for stavUhrK.
-async function fetchDobropisovanyDokl(externalCode: string): Promise<string | undefined> {
+//
+// ABRA Flexi 2026.6.3 does not expose `dobropisovanyDokl` on read (checked live
+// 2026-10-25); the link shows on the original invoice as `dobropisovano: "true"`
+// and as a "Dobropis" entry in /vazby. So the read-back checks the invoice side.
+async function fetchInvoiceDobropisovano(invoiceExternalCode: string): Promise<string | undefined> {
   const auth = "Basic " + Buffer.from(`${username}:${password}`).toString("base64")
   const res = await fetch(
-    `${baseUrl}/c/${company}/faktura-vydana/code:${encodeURIComponent(externalCode)}.json?detail=full`,
+    `${baseUrl}/c/${company}/faktura-vydana/(id = '${invoiceExternalCode}').json?detail=custom:dobropisovano`,
     { headers: { Authorization: auth } }
   )
   const body = (await res.json()) as {
-    winstrom?: { "faktura-vydana"?: { dobropisovanyDokl?: string }[] }
+    winstrom?: { "faktura-vydana"?: { dobropisovano?: string }[] }
   }
-  return body.winstrom?.["faktura-vydana"]?.[0]?.dobropisovanyDokl
+  return body.winstrom?.["faktura-vydana"]?.[0]?.dobropisovano
 }
 
 run("Abra Flexi sandbox (live)", () => {
@@ -57,7 +61,7 @@ run("Abra Flexi sandbox (live)", () => {
     })
 
     const result = await client.createInvoice({
-      externalCode: `sandbox-test-${Date.now()}`,
+      externalCode: `ext:sandbox-test:${Date.now()}`,
       currency: "CZK",
       issueDate: new Date().toISOString().slice(0, 10),
       dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
@@ -66,7 +70,29 @@ run("Abra Flexi sandbox (live)", () => {
       vatPayer: false,
     })
     expect(result.id).toBeTruthy()
-    expect(result.code).toMatch(/^sandbox-test-/)
+    expect(result.code).toMatch(/^ext:sandbox-test:/)
+  })
+
+  it("fetches a just-created invoice as a PDF", async () => {
+    const client = new AbraFlexiClient({
+      baseUrl: baseUrl!,
+      company: company!,
+      username: username!,
+      password: password!,
+    })
+    const invoice = await client.createInvoice({
+      externalCode: `ext:sandbox-test-pdf:${Date.now()}`,
+      currency: "CZK",
+      issueDate: new Date().toISOString().slice(0, 10),
+      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      customer: { name: "Sandbox Test Customer", countryCode: "CZ" },
+      lines: [{ name: "Integration test item", quantity: 1, unitPrice: 1 }],
+      vatPayer: false,
+    })
+
+    const pdf = await client.getInvoicePdf(invoice.id)
+
+    expect(pdf.subarray(0, 4).toString()).toBe("%PDF")
   })
 
   it("records a payment against a just-created invoice", async () => {
@@ -77,7 +103,7 @@ run("Abra Flexi sandbox (live)", () => {
       password: password!,
     })
 
-    const externalCode = `sandbox-test-payment-${Date.now()}`
+    const externalCode = `ext:sandbox-test-payment:${Date.now()}`
     await client.createInvoice({
       externalCode,
       currency: "CZK",
@@ -94,7 +120,7 @@ run("Abra Flexi sandbox (live)", () => {
     // The real assertion: confirm the invoice's stavUhrK was actually set to the
     // paid-manually code, not just that Abra Flexi accepted some write against it.
     const stavUhrK = await fetchStavUhrK(externalCode)
-    expect(stavUhrK).toBe(`code:${ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY}`)
+    expect(stavUhrK).toBe(ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY)
   })
 
   it("creates a credit note and links it to a just-created invoice", async () => {
@@ -105,7 +131,7 @@ run("Abra Flexi sandbox (live)", () => {
       password: password!,
     })
 
-    const invoiceExternalCode = `sandbox-test-invoice-for-credit-${Date.now()}`
+    const invoiceExternalCode = `ext:sandbox-test-invoice-for-credit:${Date.now()}`
     await client.createInvoice({
       externalCode: invoiceExternalCode,
       currency: "CZK",
@@ -116,7 +142,7 @@ run("Abra Flexi sandbox (live)", () => {
       vatPayer: false,
     })
 
-    const creditNoteExternalCode = `sandbox-test-credit-${Date.now()}`
+    const creditNoteExternalCode = `ext:sandbox-test-credit:${Date.now()}`
     const result = await client.createCreditNote({
       externalCode: creditNoteExternalCode,
       originalInvoiceExternalCode: invoiceExternalCode,
@@ -131,7 +157,6 @@ run("Abra Flexi sandbox (live)", () => {
     expect(result.id).toBeTruthy()
     expect(result.code).toBe(creditNoteExternalCode)
 
-    const linkedTo = await fetchDobropisovanyDokl(creditNoteExternalCode)
-    expect(linkedTo).toContain(invoiceExternalCode)
+    expect(await fetchInvoiceDobropisovano(invoiceExternalCode)).toBe("true")
   })
 })

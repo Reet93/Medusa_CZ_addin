@@ -17,6 +17,10 @@ class AbraFlexiModuleService extends MedusaService({}) {
   getClient(): AbraFlexiClient {
     return new AbraFlexiClient(this.options_)
   }
+
+  getInvoicePdf(invoiceId: string): Promise<Buffer> {
+    return this.getClient().getInvoicePdf(invoiceId)
+  }
 }
 
 export default AbraFlexiModuleService

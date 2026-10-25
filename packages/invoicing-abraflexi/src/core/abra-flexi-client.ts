@@ -49,9 +49,30 @@ export class AbraFlexiClient {
     this.fetchFn = opts.fetchFn ?? fetch
   }
 
+  /** The issued invoice rendered by Flexi's default print report, as PDF bytes. */
+  async getInvoicePdf(invoiceId: string): Promise<Buffer> {
+    let res: Response
+    try {
+      res = await this.fetchFn(`${this.base}/c/${this.company}/faktura-vydana/${invoiceId}.pdf`, {
+        method: "GET",
+        headers: { Authorization: this.auth, Accept: "application/pdf" },
+      })
+    } catch (e) {
+      throw new AbraFlexiApiError(0, `Abra Flexi network error: ${(e as Error).message}`, true)
+    }
+    if (!res.ok) {
+      throw new AbraFlexiApiError(
+        res.status,
+        `Abra Flexi HTTP ${res.status} fetching invoice PDF`,
+        res.status >= 500
+      )
+    }
+    return Buffer.from(await res.arrayBuffer())
+  }
+
   async createInvoice(payload: AbraFlexiInvoicePayload): Promise<AbraFlexiInvoiceResult> {
     const invoice: Record<string, unknown> = {
-      id: `code:${payload.externalCode}`,
+      id: payload.externalCode,
       typDokl: "code:FAKTURA",
       datVyd: payload.issueDate,
       splatnost: payload.dueDate,
@@ -65,6 +86,8 @@ export class AbraFlexiClient {
     if (payload.customer.ico) invoice.ic = payload.customer.ico
     if (payload.customer.dic) invoice.dic = payload.customer.dic
 
+    // Replace, not append, the lines when this PUT upserts an existing invoice (retries).
+    invoice["polozkyFaktury@removeAll"] = "true"
     invoice.polozkyFaktury = payload.lines.map((line) => ({
       "faktura-vydana-polozka": {
         nazev: line.name,
@@ -121,8 +144,8 @@ export class AbraFlexiClient {
         body: JSON.stringify({
           winstrom: {
             "faktura-vydana": {
-              id: `code:${payload.invoiceExternalCode}`,
-              stavUhrK: `code:${ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY}`,
+              id: payload.invoiceExternalCode,
+              stavUhrK: ABRA_FLEXI_PAYMENT_STATUS_CODE_PAID_MANUALLY,
             },
           },
         }),
@@ -192,7 +215,7 @@ export class AbraFlexiClient {
 
   async createCreditNote(payload: AbraFlexiCreditNotePayload): Promise<AbraFlexiCreditNoteResult> {
     const creditNote: Record<string, unknown> = {
-      id: `code:${payload.externalCode}`,
+      id: payload.externalCode,
       typDokl: `code:${ABRA_FLEXI_DOCUMENT_TYPE_CODE_CREDIT_NOTE}`,
       datVyd: payload.issueDate,
       splatnost: payload.dueDate,
@@ -206,6 +229,7 @@ export class AbraFlexiClient {
     if (payload.customer.ico) creditNote.ic = payload.customer.ico
     if (payload.customer.dic) creditNote.dic = payload.customer.dic
 
+    creditNote["polozkyFaktury@removeAll"] = "true"
     creditNote.polozkyFaktury = payload.lines.map((line) => ({
       "faktura-vydana-polozka": {
         nazev: line.name,
@@ -230,9 +254,9 @@ export class AbraFlexiClient {
     // auto-retry-link it.
     try {
       await this.putFakturaVydana({
-        id: `code:${payload.externalCode}`,
+        id: payload.externalCode,
         "vytvor-vazbu-dobropis": {
-          dobropisovanyDokl: `code:${payload.originalInvoiceExternalCode}`,
+          dobropisovanyDokl: payload.originalInvoiceExternalCode,
         },
       })
     } catch (e) {

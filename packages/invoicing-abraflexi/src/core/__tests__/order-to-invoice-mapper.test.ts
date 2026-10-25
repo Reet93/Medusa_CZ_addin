@@ -49,7 +49,7 @@ describe("mapOrderToAbraFlexiInvoice", () => {
 
   it("uses order id as the deterministic external code", () => {
     const payload = mapOrderToAbraFlexiInvoice(baseOrder({ id: "ord_456" }), { vatPayer: false })
-    expect(payload.externalCode).toBe("order-ord_456")
+    expect(payload.externalCode).toBe("ext:medusa-order:ord_456")
   })
 
   it("maps the billing address into the customer, upper-casing the country code", () => {
@@ -174,13 +174,15 @@ describe("mapOrderToAbraFlexiInvoice", () => {
 })
 
 describe("abraFlexiExternalCodeForOrder", () => {
-  it("prefixes the order id with 'order-'", () => {
-    expect(abraFlexiExternalCodeForOrder("ord_123")).toBe("order-ord_123")
+  it("builds the Flexi external id ext:medusa-order:<order id>", () => {
+    expect(abraFlexiExternalCodeForOrder("ord_123")).toBe("ext:medusa-order:ord_123")
   })
 })
 
 describe("creditNoteExternalCodeForRefund", () => {
   it("combines the order id and refund id into a single deterministic code", () => {
-    expect(creditNoteExternalCodeForRefund("ord_123", "ref_1")).toBe("order-ord_123-credit-ref_1")
+    expect(creditNoteExternalCodeForRefund("ord_123", "ref_1")).toBe(
+      "ext:medusa-credit:ord_123:ref_1"
+    )
   })
 })
