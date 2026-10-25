@@ -55,6 +55,24 @@ export interface PacketIdDetail {
   barcode: string
 }
 
+/** Packeta ClaimWithPasswordAttributes: a return ("claim assistant") packet. */
+export interface ClaimWithPasswordAttributes extends Record<string, unknown> {
+  number: string // our reference, e.g. ret-<order display id>
+  email: string
+  phone: string
+  value: number
+  currency?: string
+  eshop: string // sender label
+  consignCountry: string // ISO 3166-1 alpha-2, lower case
+  sendEmailToCustomer?: boolean
+}
+
+/** Packeta PacketDetail returned for a claim: `password` is what the customer gives at drop-off. */
+export interface PacketClaimDetail extends PacketIdDetail {
+  barcodeText: string
+  password: string
+}
+
 /** Point fields persisted on the shipping-method `data` (subset of widget Point). */
 export interface PacketaPointData extends Record<string, unknown> {
   pickup_point_id: string

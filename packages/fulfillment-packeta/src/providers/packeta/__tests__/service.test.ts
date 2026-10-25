@@ -235,13 +235,14 @@ describe("cancelFulfillment", () => {
 })
 
 describe("createReturnFulfillment", () => {
-  it("creates a return packet claim and stores its id", async () => {
-    createPacketClaim.mockResolvedValue({ id: "77", barcode: "Z77" })
-    const res = await makeProvider().createReturnFulfillment({
-      data: { packet_id: "900719925474099", pickup_point_id: "79" },
-    } as never)
-    expect(createPacketClaim).toHaveBeenCalled()
-    expect(res.data).toMatchObject({ return_packet_id: "77", return_barcode: "Z77" })
+  // Medusa strips the order before calling the provider, so the customer email/phone/value
+  // that Packeta's ClaimWithPasswordAttributes require are not available here. Return codes
+  // are created by the app (e.g. an order.return_requested subscriber) via PacketaClient.
+  it("refuses with an explanation instead of sending Packeta an incomplete claim", async () => {
+    await expect(
+      makeProvider().createReturnFulfillment({ data: { packet_id: "900719925474099" } } as never)
+    ).rejects.toThrow(/order\.return_requested/)
+    expect(createPacketClaim).not.toHaveBeenCalled()
   })
 })
 

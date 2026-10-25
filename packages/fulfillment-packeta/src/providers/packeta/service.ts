@@ -176,19 +176,19 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     }
   }
 
+  // Medusa's fulfillment module strips the order before calling createReturn, so the customer
+  // email, phone and value that Packeta's ClaimWithPasswordAttributes require never reach a
+  // provider. Sending an incomplete claim only fails later at Packeta; refuse clearly instead.
+  // Create return codes in the app, where the order is available: subscribe to
+  // order.return_requested and call PacketaClient.createPacketClaim (see README "Returns").
   async createReturnFulfillment(
-    fulfillment: Record<string, any>
+    _fulfillment: Record<string, any>
   ): Promise<{ data: Record<string, unknown>; labels: never[] }> {
-    const src = (fulfillment?.data ?? {}) as Record<string, unknown>
-    const claim = await this.client_.createPacketClaim({
-      number: `ret-${src.packet_id ?? Date.now()}`,
-      addressId: src.pickup_point_id,
-      eshop: this.options_.eshop,
-    })
-    return {
-      data: { ...src, return_packet_id: claim.id, return_barcode: claim.barcode },
-      labels: [],
-    }
+    throw new Error(
+      "Packeta: return codes are not created through the fulfillment provider (Medusa does not " +
+        "pass the order's email/phone/value to it). Use a manual return shipping option and create " +
+        "the code from an order.return_requested subscriber with PacketaClient.createPacketClaim."
+    )
   }
 
   private async labelDocuments(

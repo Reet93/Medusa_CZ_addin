@@ -4,7 +4,7 @@ Packeta / Zásilkovna pickup-point fulfillment for MedusaJS 2.0.
 
 Customers pick a Packeta pickup point during checkout (Widget v6); the provider
 creates the packet on fulfillment, prints labels, tracks shipments, closes
-batches, and handles returns. Supports COD and external-carrier points.
+batches, and creates return codes (see Returns). Supports COD and external-carrier points.
 
 ## Register (medusa-config.ts)
 
@@ -51,6 +51,29 @@ The storefront writes the chosen point into the cart shipping-method `data`;
 
 - `pickup_point_id`, `pickup_point_name`, `pickup_point_type` (`internal` | `external`)
 - `carrier_id`, `carrier_pickup_point_id` (external points only)
+
+## Returns
+
+Packeta returns are "claim assistant" packets created with
+`createPacketClaimWithPassword`. The customer gets a **password** (drop-off code) and
+hands the parcel in at any Packeta pickup point or Z-BOX; Packeta bills the sender.
+
+- `PacketaClient.createPacketClaim(attrs: ClaimWithPasswordAttributes)` returns
+  `{ id, barcode, barcodeText, password }`. Required attributes: `number`, `email`,
+  `phone`, `value`, `eshop` (sender label), `consignCountry`; optional `currency`,
+  `sendEmailToCustomer`.
+- **Create codes in the app, not through the provider.** Medusa's fulfillment module
+  strips the order before calling a provider's `createReturnFulfillment`, so the customer
+  email/phone/value never reach it. This provider's `createReturnFulfillment` therefore
+  throws with an explanation. Use a manual return shipping option and create the code in
+  an `order.return_requested` subscriber, which has the order:
+  `import { PacketaClient } from "@medusa-cz/fulfillment-packeta/core/packeta-client"`.
+- **Destination:** a claim has no destination attribute. Returns travel according to the
+  sender's return routing in the Packeta client section (readable with
+  `senderGetReturnRouting(senderLabel)`); delivering returns to one chosen pickup point or
+  Z-BOX is an account setting, not an API option.
+- Field names follow Packeta's XML convention (`claimWithPasswordAttributes`,
+  `consignCountry`); Packeta has no sandbox, so confirm on the first real return.
 
 ## Admin routes
 

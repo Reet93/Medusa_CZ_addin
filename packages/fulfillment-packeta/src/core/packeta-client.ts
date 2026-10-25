@@ -1,6 +1,11 @@
 import { XMLBuilder, XMLParser } from "fast-xml-parser"
 import { PACKETA_REST_URL } from "../types.js"
-import type { PacketAttributes, PacketIdDetail } from "../types.js"
+import type {
+  ClaimWithPasswordAttributes,
+  PacketAttributes,
+  PacketClaimDetail,
+  PacketIdDetail,
+} from "../types.js"
 
 export class PacketaError extends Error {
   readonly name = "PacketaError"
@@ -128,12 +133,19 @@ export class PacketaClient {
     return { id: String(r.id), barcode: String(r.barcode) }
   }
 
-  async createPacketClaim(attrs: Record<string, unknown>): Promise<PacketIdDetail> {
-    const r = await this.call<{ id: string | number; barcode: string }>(
-      "createPacketClaimWithPassword",
-      { attributes: attrs }
-    )
-    return { id: String(r.id), barcode: String(r.barcode) }
+  async createPacketClaim(attrs: ClaimWithPasswordAttributes): Promise<PacketClaimDetail> {
+    const r = await this.call<{
+      id: string | number
+      barcode: string
+      barcodeText?: string
+      password?: string
+    }>("createPacketClaimWithPassword", { claimWithPasswordAttributes: attrs })
+    return {
+      id: String(r.id),
+      barcode: String(r.barcode),
+      barcodeText: String(r.barcodeText ?? r.barcode),
+      password: String(r.password ?? ""),
+    }
   }
 
   async senderGetReturnRouting(senderLabel: string): Promise<string[]> {

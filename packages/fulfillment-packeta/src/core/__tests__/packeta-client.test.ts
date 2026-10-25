@@ -135,16 +135,28 @@ describe("PacketaClient label/shipment/returns", () => {
     expect(body).toContain("<id>2</id>")
   })
 
-  it("createPacketClaim returns id+barcode as strings", async () => {
+  it("createPacketClaim sends ClaimWithPasswordAttributes and returns the drop-off password", async () => {
     mockFetchOnce(
       200,
-      `<response status="ok"><result><id>77</id><barcode>Z77</barcode></result></response>`
+      `<response status="ok"><result><id>77</id><barcode>Z77</barcode><barcodeText>Z 77</barcodeText><password>123456</password></result></response>`
     )
-    const res = await new PacketaClient(opts).createPacketClaim({ number: "ret-1", value: 10 })
-    expect(res).toEqual({ id: "77", barcode: "Z77" })
+    const res = await new PacketaClient(opts).createPacketClaim({
+      number: "ret-12",
+      email: "jana@example.cz",
+      phone: "+420777000000",
+      value: 2690,
+      currency: "CZK",
+      eshop: "mente",
+      consignCountry: "cz",
+      sendEmailToCustomer: false,
+    })
+    expect(res).toEqual({ id: "77", barcode: "Z77", barcodeText: "Z 77", password: "123456" })
     const body = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1]
       .body as string
     expect(body).toContain("<createPacketClaimWithPassword>")
+    expect(body).toContain("<claimWithPasswordAttributes>")
+    expect(body).toContain("<email>jana@example.cz</email>")
+    expect(body).toContain("<consignCountry>cz</consignCountry>")
   })
 
   it("senderGetReturnRouting returns an array of strings", async () => {
