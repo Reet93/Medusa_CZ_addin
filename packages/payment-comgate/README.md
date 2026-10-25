@@ -26,9 +26,11 @@ The resolve path must be the `/providers/comgate` subpath, not the bare package 
 this package's `exports` map (like `fulfillment-packeta`'s) only exposes `./providers/*`.
 Already registered this way in `apps/backend/medusa-config.ts` for the demo.
 
-Provider id becomes `pp_comgate_comgate`. Webhook URL: `https://<host>/hooks/payment/pp_comgate_comgate`
-(configure in the Comgate Client Portal). Comgate webhooks are unsigned — the provider always
-re-queries status.
+Provider id becomes `pp_comgate_comgate`. Webhook URL: `https://<host>/hooks/payment/comgate_comgate`
+(configure in the Comgate Client Portal as "Url pro předání výsledku platby"). Note: no `pp_` in the
+URL — Medusa's webhook route prepends `pp_` itself, so `/hooks/payment/pp_comgate_comgate` fails in
+the worker with "Could not resolve 'pp_pp_comgate_comgate'" while still answering Comgate 200.
+Comgate webhooks are unsigned — the provider always re-queries status.
 
 ## Options
 
