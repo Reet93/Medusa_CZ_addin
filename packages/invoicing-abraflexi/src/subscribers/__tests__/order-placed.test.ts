@@ -11,7 +11,13 @@ import abraFlexiOrderPlacedHandler, { config } from "../order-placed"
 import { createInvoiceInAbraFlexiWorkflow } from "../../workflows/create-invoice-in-abra-flexi"
 import { recordPaymentInAbraFlexiWorkflow } from "../../workflows/record-payment-in-abra-flexi"
 
-type Payment = { id: string; captured_at: string | null }
+type Payment = {
+  id: string
+  captured_at: string | null
+  canceled_at?: string | null
+  amount?: number
+  refunds?: Array<{ amount: number }>
+}
 
 function containerWithPayments(collections: Payment[][]) {
   const graph = vi.fn().mockResolvedValue({
@@ -96,6 +102,46 @@ describe("order-placed subscriber", () => {
     } as never)
 
     expect(calls).toEqual(["invoice:pay_1", "record:pay_1", "invoice:pay_3", "record:pay_3"])
+  })
+
+  // A cart whose first completion failed keeps its captured-then-refunded payment in the
+  // same collection; the order is placed with a second payment (live test, 2026-10-25).
+  it("skips captured payments that were fully refunded or canceled", async () => {
+    const { container } = containerWithPayments([
+      [
+        {
+          id: "pay_refunded",
+          captured_at: "2026-10-25T18:04:11Z",
+          amount: 2690,
+          refunds: [{ amount: 2690 }],
+        },
+        {
+          id: "pay_canceled",
+          captured_at: "2026-10-25T18:05:00Z",
+          canceled_at: "2026-10-25T18:06:00Z",
+        },
+        {
+          id: "pay_partial",
+          captured_at: "2026-10-25T19:00:00Z",
+          amount: 2690,
+          refunds: [{ amount: 500 }],
+        },
+        { id: "pay_live", captured_at: "2026-10-25T19:11:08Z", amount: 2690, refunds: [] },
+      ],
+    ])
+
+    await abraFlexiOrderPlacedHandler({
+      event: { data: { id: "ord_1" }, name: "order.placed" },
+      container,
+      pluginOptions: {},
+    } as never)
+
+    expect(calls).toEqual([
+      "invoice:pay_partial",
+      "record:pay_partial",
+      "invoice:pay_live",
+      "record:pay_live",
+    ])
   })
 
   it("does not record a payment when its invoice creation fails", async () => {

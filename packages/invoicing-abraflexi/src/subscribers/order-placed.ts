@@ -14,6 +14,10 @@ import { recordPaymentInAbraFlexiWorkflow } from "../workflows/record-payment-in
 // Both paths are safe to overlap: the invoice workflow skips an order that
 // already has abra_flexi_invoice_id, and payment recording skips payment ids
 // already in abra_flexi_recorded_payment_ids.
+//
+// Canceled and fully refunded payments are skipped: a cart whose first completion
+// failed keeps its captured-then-refunded payment in the same collection, next to
+// the payment the order is actually placed with (live test, 2026-10-25).
 export default async function abraFlexiOrderPlacedHandler({
   event: { data },
   container,
@@ -21,16 +25,30 @@ export default async function abraFlexiOrderPlacedHandler({
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const { data: orders } = await query.graph({
     entity: "order",
-    fields: ["id", "payment_collections.payments.id", "payment_collections.payments.captured_at"],
+    fields: [
+      "id",
+      "payment_collections.payments.id",
+      "payment_collections.payments.amount",
+      "payment_collections.payments.captured_at",
+      "payment_collections.payments.canceled_at",
+      "payment_collections.payments.refunds.amount",
+    ],
     filters: { id: data.id },
   })
 
-  type OrderPayment = { id: string; captured_at?: Date | string | null } | null
+  type OrderPayment = {
+    id: string
+    amount?: unknown
+    captured_at?: Date | string | null
+    canceled_at?: Date | string | null
+    refunds?: Array<{ amount?: unknown } | null> | null
+  } | null
   type OrderWithPayments = { payment_collections?: Array<{ payments?: OrderPayment[] } | null> }
   const order = orders[0] as OrderWithPayments | undefined
   const capturedPaymentIds = (order?.payment_collections ?? [])
     .flatMap((collection) => collection?.payments ?? [])
     .filter((payment): payment is NonNullable<OrderPayment> => !!payment?.captured_at)
+    .filter((payment) => !payment.canceled_at && !isFullyRefunded(payment))
     .map((payment) => payment.id)
 
   for (const paymentId of capturedPaymentIds) {
@@ -41,4 +59,15 @@ export default async function abraFlexiOrderPlacedHandler({
 
 export const config: SubscriberConfig = {
   event: "order.placed",
+}
+
+function isFullyRefunded(payment: {
+  amount?: unknown
+  refunds?: Array<{ amount?: unknown } | null> | null
+}): boolean {
+  const refunded = (payment.refunds ?? []).reduce(
+    (sum, refund) => sum + Number(refund?.amount ?? 0),
+    0
+  )
+  return refunded > 0 && refunded >= Number(payment.amount ?? 0)
 }
