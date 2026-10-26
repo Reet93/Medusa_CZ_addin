@@ -31,7 +31,24 @@ export interface PacketaOptions {
   optionId?: string // shipping option id this provider serves; default "packeta-pickup"
   optionName?: string // default "Packeta pickup point"
   weightUnit?: "g" | "kg" // unit of the product/variant weights in Medusa; default "kg"
+  homeDelivery?: HomeDeliveryOptions // adds the "packeta-home" option (delivery to the door)
+  eveningDelivery?: EveningDeliveryOptions // adds the "packeta-evening" option (18–22 h, big cities)
 }
+
+export interface HomeDeliveryOptions {
+  carrierId?: string // Packeta carrier for door delivery; default "106" (CZ Zásilkovna domů HD)
+  name?: string // default "Packeta home delivery"
+  priceTable: PriceTable
+}
+
+export interface EveningDeliveryOptions {
+  /** one Packeta carrier per city (e.g. 18928 Praha); chosen by the postcode's first digits */
+  carriers: Array<{ carrierId: string; zipPrefixes: string[] }>
+  name?: string // default "Packeta evening delivery"
+  priceTable: PriceTable
+}
+
+export type PacketaDelivery = "pickup" | "home" | "evening"
 
 export type PickupPointType = "internal" | "external"
 
@@ -49,6 +66,11 @@ export interface PacketAttributes extends Record<string, unknown> {
   value: number
   weight: number
   eshop?: string
+  // Delivery to the door (addressId = a home-delivery carrier id).
+  street?: string
+  houseNumber?: string
+  city?: string
+  zip?: string
 }
 
 export interface PacketIdDetail {

@@ -2,7 +2,17 @@ import { AbstractFulfillmentProviderService, MedusaError } from "@medusajs/frame
 import { PacketaClient } from "../../core/packeta-client.js"
 import { calculateShippingPrice } from "../../core/pricing.js"
 import { validatePoint } from "../../core/widget-validate.js"
-import type { PacketaOptions, PacketaPointData } from "../../types.js"
+import { eveningCarrierFor, normalizeZip, splitStreet } from "../../core/door-address.js"
+import type {
+  PacketaDelivery,
+  PacketaOptions,
+  PacketaPointData,
+  PriceTable,
+} from "../../types.js"
+
+const HOME_OPTION_ID = "packeta-home"
+const EVENING_OPTION_ID = "packeta-evening"
+const HOME_CARRIER_ID = "106" // CZ Zásilkovna domů HD
 
 class PacketaProviderService extends AbstractFulfillmentProviderService {
   static identifier = "packeta"
@@ -46,7 +56,68 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
   }
 
   async getFulfillmentOptions(): Promise<Array<{ id: string; name: string }>> {
-    return [{ id: this.optionId_, name: this.options_.optionName ?? "Packeta pickup point" }]
+    const { homeDelivery, eveningDelivery } = this.options_
+    return [
+      { id: this.optionId_, name: this.options_.optionName ?? "Packeta pickup point" },
+      ...(homeDelivery
+        ? [{ id: HOME_OPTION_ID, name: homeDelivery.name ?? "Packeta home delivery" }]
+        : []),
+      ...(eveningDelivery
+        ? [{ id: EVENING_OPTION_ID, name: eveningDelivery.name ?? "Packeta evening delivery" }]
+        : []),
+    ]
+  }
+
+  // The shipping option's data is the fulfillment option it was created from. Options created
+  // before home delivery existed carry no id (or the configured pickup id): the pickup point.
+  private deliveryOf_(optionData: Record<string, unknown> | undefined): PacketaDelivery {
+    const id = optionData?.id
+    if (id === HOME_OPTION_ID && this.options_.homeDelivery) {
+      return "home"
+    }
+    if (id === EVENING_OPTION_ID && this.options_.eveningDelivery) {
+      return "evening"
+    }
+    return "pickup"
+  }
+
+  private priceTable_(delivery: PacketaDelivery): PriceTable {
+    if (delivery === "home") {
+      return this.options_.homeDelivery!.priceTable
+    }
+    if (delivery === "evening") {
+      return this.options_.eveningDelivery!.priceTable
+    }
+    return this.options_.priceTable
+  }
+
+  // Door delivery: Packeta needs a street with a house number, a Czech postcode and a phone for
+  // the courier. Checked when the customer picks the option, so the order never reaches Admin
+  // with an address Packeta will refuse. Returns the carrier for this address.
+  private doorCarrier_(delivery: "home" | "evening", address: Record<string, any>): string {
+    const invalid = (message: string) =>
+      new MedusaError(MedusaError.Types.INVALID_DATA, `Packeta: ${message}`)
+    if (!splitStreet(String(address.address_1 ?? ""))) {
+      throw invalid("delivery to the door needs a street with a house number")
+    }
+    const zip = normalizeZip(address.postal_code)
+    if (!/^\d{5}$/.test(zip)) {
+      throw invalid("delivery to the door needs a 5-digit postcode")
+    }
+    if (!String(address.city ?? "").trim()) {
+      throw invalid("delivery to the door needs a city")
+    }
+    if (!String(address.phone ?? "").trim()) {
+      throw invalid("delivery to the door needs a phone number for the courier")
+    }
+    if (delivery === "home") {
+      return this.options_.homeDelivery!.carrierId ?? HOME_CARRIER_ID
+    }
+    const carrier = eveningCarrierFor(zip, this.options_.eveningDelivery!.carriers)
+    if (!carrier) {
+      throw invalid(`evening delivery is not available for postcode ${zip}`)
+    }
+    return carrier
   }
 
   async canCalculate(_data: unknown): Promise<boolean> {
@@ -54,7 +125,7 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
   }
 
   async calculatePrice(
-    _optionData: Record<string, unknown>,
+    optionData: Record<string, unknown>,
     data: Record<string, unknown>,
     context: Record<string, unknown>
   ): Promise<{ calculated_amount: number; is_calculated_price_tax_inclusive: boolean }> {
@@ -75,7 +146,7 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     const items = (context.items as Array<Record<string, any>> | undefined) ?? []
     const weight = this.itemsWeightKg_(items)
     const subtotal = Number((context.item_total as number) ?? (context.subtotal as number) ?? 0)
-    const amount = calculateShippingPrice(this.options_.priceTable, country, weight, {
+    const amount = calculateShippingPrice(this.priceTable_(this.deliveryOf_(optionData)), country, weight, {
       cod: !!data.cod,
       subtotal: subtotal || undefined,
     })
@@ -83,10 +154,15 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
   }
 
   async validateFulfillmentData(
-    _optionData: Record<string, unknown>,
+    optionData: Record<string, unknown>,
     data: Record<string, unknown>,
-    _context: Record<string, unknown>
+    context: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
+    const delivery = this.deliveryOf_(optionData)
+    if (delivery !== "pickup") {
+      const address = (context?.shipping_address ?? {}) as Record<string, any>
+      return { delivery, carrier_id: this.doorCarrier_(delivery, address) }
+    }
     const id = data.pickup_point_id as string | undefined
     if (!id) {
       throw new Error("Packeta: no pickup point selected (missing `pickup_point_id`)")
@@ -127,6 +203,24 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
   ): Promise<{ data: Record<string, unknown>; labels: never[] }> {
     const addr = (order?.shipping_address ?? {}) as Record<string, any>
     const isExternal = (data.pickup_point_type as string) === "external"
+    const delivery = data.delivery === "home" || data.delivery === "evening" ? data.delivery : null
+    // The address may have been edited since checkout, so the carrier and fields come from the
+    // order's address now; doorCarrier_ refuses one Packeta would not deliver to.
+    const door = delivery
+      ? (() => {
+          const { street, houseNumber } = splitStreet(String(addr.address_1 ?? "")) ?? {
+            street: String(addr.address_1 ?? ""),
+            houseNumber: undefined,
+          }
+          return {
+            addressId: this.doorCarrier_(delivery, addr),
+            street,
+            houseNumber,
+            city: String(addr.city ?? ""),
+            zip: normalizeZip(addr.postal_code),
+          }
+        })()
+      : null
     const weight = this.itemsWeightKg_(items, (order?.items as Array<Record<string, any>>) ?? [])
     const cod = data.cod ? Number(data.cod_amount ?? order?.item_total ?? 0) : undefined
 
@@ -138,10 +232,12 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
         surname: String(addr.last_name ?? ""),
         email: order?.email ? String(order.email) : undefined,
         phone: addr.phone ? String(addr.phone) : undefined,
-        addressId: isExternal
-          ? String(data.carrier_id ?? data.pickup_point_id)
-          : String(data.pickup_point_id),
-        carrierPickupPoint: isExternal ? String(data.carrier_pickup_point_id ?? "") : undefined,
+        ...(door ?? {
+          addressId: isExternal
+            ? String(data.carrier_id ?? data.pickup_point_id)
+            : String(data.pickup_point_id),
+          carrierPickupPoint: isExternal ? String(data.carrier_pickup_point_id ?? "") : undefined,
+        }),
         value: Number(order?.item_total ?? 0),
         weight,
         ...(cod != null ? { cod, currency: this.options_.defaultCurrency ?? "CZK" } : {}),

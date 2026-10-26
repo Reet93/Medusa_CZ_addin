@@ -44,6 +44,34 @@ registers the provider under `fp_packeta_packeta`
 (`fp_${identifier}_${id}`); the fulfillment `provider_id` on shipping options is
 `packeta_packeta`.
 
+## Delivery to the door (optional)
+
+Two more fulfillment options appear when configured, each with its own price table:
+
+```ts
+homeDelivery: {
+  // carrierId defaults to "106" (CZ Zásilkovna domů HD)
+  priceTable: { cz: { bands: [{ maxWeight: 5, price: 129 }] } },
+},
+eveningDelivery: {
+  // One Packeta carrier per city, picked by the postcode's first digits.
+  carriers: [
+    { carrierId: "18928", zipPrefixes: ["1"] }, // Praha
+    { carrierId: "26637", zipPrefixes: ["60", "61", "62", "63", "64"] }, // Brno
+    { carrierId: "134", zipPrefixes: ["70", "71", "72"] }, // Ostrava
+  ],
+  priceTable: { cz: { bands: [{ maxWeight: 5, price: 179 }] } },
+},
+```
+
+Create a shipping option per fulfillment option (`data: { id: "packeta-home" }` /
+`{ id: "packeta-evening" }`); an option without an id is the pickup point. The storefront sends
+no `data` for these: `validateFulfillmentData` checks the cart's shipping address (street with a
+house number, 5-digit postcode, city, phone) and stores `{ delivery, carrier_id }`.
+`createFulfillment` re-derives the carrier from the order's address and sends `street`,
+`houseNumber`, `city` and `zip`. Packeta only accepts carriers enabled for the account
+(`apiAllowed` in the carrier feed); evening delivery has to be enabled by Packeta first.
+
 ## Selected-point data contract
 
 The storefront writes the chosen point into the cart shipping-method `data`;
