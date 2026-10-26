@@ -39,14 +39,14 @@ plugins: [
 
 ## Options
 
-| Option     | Env var                | Required | Default | Notes                                                          |
-| ---------- | ---------------------- | -------- | ------- | -------------------------------------------------------------- |
-| `baseUrl`  | `ABRA_FLEXI_BASE_URL`  | yes      | —       | Cloud (`https://<company>.flexibee.eu`) or self-hosted server. |
-| `company`  | `ABRA_FLEXI_COMPANY`   | yes      | —       | Company/evidence slug in the API URL path.                     |
-| `username` | `ABRA_FLEXI_USERNAME`  | yes      | —       | HTTP Basic auth.                                               |
-| `password` | `ABRA_FLEXI_PASSWORD`  | yes      | —       | HTTP Basic auth.                                               |
-| `vatPayer` | `ABRA_FLEXI_VAT_PAYER` | no       | `false` | Flip once the business registers as VAT-payer (plátce DPH).    |
-| `shippingLineNames` | — | no | — | Invoice line name per shipping method name, e.g. `{ "Packeta home delivery": "Doprava: doručení na adresu (Zásilkovna)" }`; unknown names stay as they are. |
+| Option              | Env var                | Required | Default | Notes                                                                                                                                                       |
+| ------------------- | ---------------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `baseUrl`           | `ABRA_FLEXI_BASE_URL`  | yes      | —       | Cloud (`https://<company>.flexibee.eu`) or self-hosted server.                                                                                              |
+| `company`           | `ABRA_FLEXI_COMPANY`   | yes      | —       | Company/evidence slug in the API URL path.                                                                                                                  |
+| `username`          | `ABRA_FLEXI_USERNAME`  | yes      | —       | HTTP Basic auth.                                                                                                                                            |
+| `password`          | `ABRA_FLEXI_PASSWORD`  | yes      | —       | HTTP Basic auth.                                                                                                                                            |
+| `vatPayer`          | `ABRA_FLEXI_VAT_PAYER` | no       | `false` | Flip once the business registers as VAT-payer (plátce DPH).                                                                                                 |
+| `shippingLineNames` | —                      | no       | —       | Invoice line name per shipping method name, e.g. `{ "Packeta home delivery": "Doprava: doručení na adresu (Zásilkovna)" }`; unknown names stay as they are. |
 
 ## What it does
 

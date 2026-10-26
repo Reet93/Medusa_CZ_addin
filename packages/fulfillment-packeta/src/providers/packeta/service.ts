@@ -3,12 +3,7 @@ import { PacketaClient } from "../../core/packeta-client.js"
 import { calculateShippingPrice } from "../../core/pricing.js"
 import { validatePoint } from "../../core/widget-validate.js"
 import { eveningCarrierFor, normalizeZip, splitStreet } from "../../core/door-address.js"
-import type {
-  PacketaDelivery,
-  PacketaOptions,
-  PacketaPointData,
-  PriceTable,
-} from "../../types.js"
+import type { PacketaDelivery, PacketaOptions, PacketaPointData, PriceTable } from "../../types.js"
 
 const HOME_OPTION_ID = "packeta-home"
 const EVENING_OPTION_ID = "packeta-evening"
@@ -146,10 +141,15 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     const items = (context.items as Array<Record<string, any>> | undefined) ?? []
     const weight = this.itemsWeightKg_(items)
     const subtotal = Number((context.item_total as number) ?? (context.subtotal as number) ?? 0)
-    const amount = calculateShippingPrice(this.priceTable_(this.deliveryOf_(optionData)), country, weight, {
-      cod: !!data?.cod,
-      subtotal: subtotal || undefined,
-    })
+    const amount = calculateShippingPrice(
+      this.priceTable_(this.deliveryOf_(optionData)),
+      country,
+      weight,
+      {
+        cod: !!data?.cod,
+        subtotal: subtotal || undefined,
+      }
+    )
     return { calculated_amount: amount, is_calculated_price_tax_inclusive: false }
   }
 

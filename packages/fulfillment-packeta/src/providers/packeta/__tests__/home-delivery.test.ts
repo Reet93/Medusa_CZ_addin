@@ -83,14 +83,22 @@ describe("prices per delivery type", () => {
 describe("adding a door option to the cart", () => {
   // Door options carry no shipping-method data, and Medusa then passes data undefined (live 500).
   it("prices it when Medusa passes no method data", async () => {
-    const res = await provider().calculatePrice(HOME as never, undefined as never, cart({}) as never)
+    const res = await provider().calculatePrice(
+      HOME as never,
+      undefined as never,
+      cart({}) as never
+    )
     expect(res.calculated_amount).toBe(129)
   })
 })
 
 describe("validateFulfillmentData for delivery to the door", () => {
   it("accepts a complete Czech address without a pickup point", async () => {
-    const data = await provider().validateFulfillmentData(HOME as never, {} as never, cart({}) as never)
+    const data = await provider().validateFulfillmentData(
+      HOME as never,
+      {} as never,
+      cart({}) as never
+    )
     expect(data).toEqual({ delivery: "home", carrier_id: "106" })
     expect(validatePoint).not.toHaveBeenCalled()
   })
@@ -103,15 +111,30 @@ describe("validateFulfillmentData for delivery to the door", () => {
 
   it("needs a street with a house number and a 5-digit postcode", async () => {
     await expect(
-      provider().validateFulfillmentData(HOME as never, {} as never, cart({ address_1: "Vinohradská" }) as never)
-    ).rejects.toMatchObject({ type: "invalid_data", message: expect.stringMatching(/house number/) })
+      provider().validateFulfillmentData(
+        HOME as never,
+        {} as never,
+        cart({ address_1: "Vinohradská" }) as never
+      )
+    ).rejects.toMatchObject({
+      type: "invalid_data",
+      message: expect.stringMatching(/house number/),
+    })
     await expect(
-      provider().validateFulfillmentData(HOME as never, {} as never, cart({ postal_code: "1200" }) as never)
+      provider().validateFulfillmentData(
+        HOME as never,
+        {} as never,
+        cart({ postal_code: "1200" }) as never
+      )
     ).rejects.toMatchObject({ type: "invalid_data", message: expect.stringMatching(/postcode/) })
   })
 
   it("picks the evening carrier of the customer's city by postcode", async () => {
-    const praha = await provider().validateFulfillmentData(EVENING as never, {} as never, cart({}) as never)
+    const praha = await provider().validateFulfillmentData(
+      EVENING as never,
+      {} as never,
+      cart({}) as never
+    )
     expect(praha).toEqual({ delivery: "evening", carrier_id: "18928" })
     const brno = await provider().validateFulfillmentData(
       EVENING as never,
@@ -171,9 +194,14 @@ describe("createFulfillment to the door", () => {
     await provider().createFulfillment(
       { delivery: "evening", carrier_id: "18928" },
       [] as never,
-      { ...order, shipping_address: { ...order.shipping_address, city: "Brno", postal_code: "61200" } } as never,
+      {
+        ...order,
+        shipping_address: { ...order.shipping_address, city: "Brno", postal_code: "61200" },
+      } as never,
       {} as never
     )
-    expect(createPacket).toHaveBeenCalledWith(expect.objectContaining({ addressId: "26637", zip: "61200" }))
+    expect(createPacket).toHaveBeenCalledWith(
+      expect.objectContaining({ addressId: "26637", zip: "61200" })
+    )
   })
 })
