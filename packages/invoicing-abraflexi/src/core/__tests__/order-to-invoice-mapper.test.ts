@@ -33,6 +33,22 @@ function baseOrder(overrides: Partial<OrderDTO> = {}): OrderDTO {
 }
 
 describe("mapOrderToAbraFlexiInvoice", () => {
+  it("throws instead of sending a line without a quantity", () => {
+    const order = baseOrder({
+      items: [{ id: "li_1", title: "Tričko", unit_price: 299 }] as OrderDTO["items"],
+    })
+    expect(() => mapOrderToAbraFlexiInvoice(order, { vatPayer: false })).toThrow(/quantity/)
+  })
+
+  it("accepts a BigNumber-like quantity", () => {
+    const order = baseOrder({
+      items: [
+        { id: "li_1", title: "Tričko", quantity: "3", unit_price: 299 },
+      ] as unknown as OrderDTO["items"],
+    })
+    expect(mapOrderToAbraFlexiInvoice(order, { vatPayer: false }).lines[0]?.quantity).toBe(3)
+  })
+
   it("maps line items, currency, and issue/due dates", () => {
     const payload = mapOrderToAbraFlexiInvoice(baseOrder(), { vatPayer: false })
     expect(payload.currency).toBe("CZK")

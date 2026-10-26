@@ -47,9 +47,9 @@ export async function resolveOrderStepFn(
       "order.email",
       "order.currency_code",
       "order.metadata",
-      "order.items.title",
-      "order.items.quantity",
-      "order.items.unit_price",
+      // Whole items: "order.items.quantity" alone comes back undefined in Medusa 2.17
+      // (see create-credit-note-in-abra-flexi.ts).
+      "order.items.*",
       "order.shipping_methods.name",
       "order.shipping_methods.amount",
       "order.shipping_address.*",

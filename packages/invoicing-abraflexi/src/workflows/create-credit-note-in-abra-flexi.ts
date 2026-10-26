@@ -55,9 +55,9 @@ export async function resolveOrderByIdStepFn(
       "email",
       "currency_code",
       "metadata",
-      "items.title",
-      "items.quantity",
-      "items.unit_price",
+      // Whole items: Medusa 2.17 leaves items[].quantity undefined when it is selected
+      // on its own ("items.quantity"), which ABRA rejected as null (live test, 2026-10-26).
+      "items.*",
       "shipping_methods.name",
       "shipping_methods.amount",
       "shipping_address.*",

@@ -23,6 +23,21 @@ function mockContainer(overrides: Record<string, unknown> = {}) {
 }
 
 describe("resolveOrderStepFn", () => {
+  it("selects whole order items so quantity is populated", async () => {
+    const paymentModuleService = {
+      retrievePayment: vi
+        .fn()
+        .mockResolvedValue({ id: "pay_1", payment_collection_id: "pay_col_1" }),
+    }
+    const query = { graph: vi.fn().mockResolvedValue({ data: [{ order }] }) }
+    await resolveOrderStepFn({ paymentId: "pay_1" }, {
+      container: mockContainer({ payment: paymentModuleService, query }),
+    } as never)
+    const fields = (query.graph.mock.calls[0] as [{ fields: string[] }])[0].fields
+    expect(fields).toContain("order.items.*")
+    expect(fields).not.toContain("order.items.quantity")
+  })
+
   it("resolves the order via the payment's payment_collection_id", async () => {
     const payment = { id: "pay_1", payment_collection_id: "pay_col_1" }
     const paymentModuleService = { retrievePayment: vi.fn().mockResolvedValue(payment) }

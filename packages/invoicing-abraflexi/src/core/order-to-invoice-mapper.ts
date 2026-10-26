@@ -50,12 +50,20 @@ export function mapOrderToAbraFlexiInvoice(
     }
   }
 
-  const itemLines: AbraFlexiInvoiceLine[] = (order.items ?? []).map((item) => ({
-    name: item.title,
-    quantity: item.quantity,
-    unitPrice: item.unit_price,
-    vatRate: config.vatPayer ? CZ_VAT_RATE_BASIC : undefined,
-  }))
+  // quantity is a BigNumberValue; a missing one must fail the step rather than reach Flexi,
+  // which would bill it as 1 (invoice) or reject it as null (credit note).
+  const itemLines: AbraFlexiInvoiceLine[] = (order.items ?? []).map((item) => {
+    const quantity = Number(item.quantity)
+    if (item.quantity == null || !Number.isFinite(quantity) || quantity <= 0) {
+      throw new Error(`Abra Flexi: order "${order.id}" item "${item.id}" has no valid quantity`)
+    }
+    return {
+      name: item.title,
+      quantity,
+      unitPrice: item.unit_price,
+      vatRate: config.vatPayer ? CZ_VAT_RATE_BASIC : undefined,
+    }
+  })
 
   // Shipping charges live on order.shipping_methods, not order.items -- map them
   // into their own invoice lines (one per shipping method) so the invoice isn't

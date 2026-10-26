@@ -32,6 +32,21 @@ function refund(overrides: Partial<RefundDTO> = {}): RefundDTO {
 }
 
 describe("resolveOrderByIdStepFn", () => {
+  // Medusa 2.17's order module only fills items[].quantity (it lives on the order item
+  // detail) when the whole item is selected -- "items.quantity" alone comes back undefined,
+  // which made ABRA reject the full-cancel credit note (live test, 2026-10-26).
+  it("selects whole items so quantity is populated", async () => {
+    const query = {
+      graph: vi.fn().mockResolvedValue({ data: [{ ...order, payment_collections: [] }] }),
+    }
+    await resolveOrderByIdStepFn({ orderId: "ord_1", triggeredBy: "order_canceled" }, {
+      container: mockContainer({ query }),
+    } as never)
+    const fields = (query.graph.mock.calls[0] as [{ fields: string[] }])[0].fields
+    expect(fields).toContain("items.*")
+    expect(fields).not.toContain("items.quantity")
+  })
+
   it("resolves the order and flattens payment ids across every payment collection", async () => {
     const query = {
       graph: vi.fn().mockResolvedValue({
