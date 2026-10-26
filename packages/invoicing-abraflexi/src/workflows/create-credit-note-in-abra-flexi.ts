@@ -12,6 +12,7 @@ import type { OrderDTO, RefundDTO } from "@medusajs/framework/types"
 import { ABRA_FLEXI_MODULE } from "../modules/abra-flexi/index.js"
 import type AbraFlexiModuleService from "../modules/abra-flexi/service.js"
 import { AbraFlexiApiError } from "../core/abra-flexi-client.js"
+import { mapOrderToAbraFlexiInvoice } from "../core/order-to-invoice-mapper.js"
 import {
   mapOrderToFullCreditNote,
   mapRefundToLumpSumCreditNote,
@@ -127,6 +128,8 @@ export async function createCreditNotesForNewRefundsStepFn(
     newRefunds: RefundDTO[]
     triggeredBy: CreditNoteTrigger
     invoiceExternalCode: string
+    /** a credit note was recorded for this order before this run */
+    hadEarlierCreditNotes?: boolean
   },
   { container }: StepCtx
 ): Promise<StepResponse<CreatedCreditNote[]>> {
@@ -137,17 +140,29 @@ export async function createCreditNotesForNewRefundsStepFn(
   const config = { vatPayer: !!abraFlexi.getOptions().vatPayer }
   const client = abraFlexi.getClient()
   const created: CreatedCreditNote[] = []
+  // A cancel mirrors the invoice lines only for a refund of the whole invoice with nothing credited
+  // before; anything else (cancel after a partial refund, several refunds) is credited at the
+  // refunded amount -- the full mirror credited 300 Kč twice on a live test order (2026-10-26).
+  const invoiceTotal = mapOrderToAbraFlexiInvoice(input.order, config).lines.reduce(
+    (sum, line) => sum + line.quantity * line.unitPrice,
+    0
+  )
+  let mirrored = !!input.hadEarlierCreditNotes
 
   try {
     for (const refund of input.newRefunds) {
-      const payload =
-        input.triggeredBy === "order_canceled"
-          ? mapOrderToFullCreditNote(input.order, config, refund.id)
-          : mapRefundToLumpSumCreditNote(input.order, config, {
-              id: refund.id,
-              amount: Number(refund.amount),
-              note: refund.note,
-            })
+      const mirror =
+        input.triggeredBy === "order_canceled" &&
+        !mirrored &&
+        Number(refund.amount) === invoiceTotal
+      mirrored ||= mirror
+      const payload = mirror
+        ? mapOrderToFullCreditNote(input.order, config, refund.id)
+        : mapRefundToLumpSumCreditNote(input.order, config, {
+            id: refund.id,
+            amount: Number(refund.amount),
+            note: refund.note,
+          })
       const result = await client.createCreditNote({
         ...payload,
         originalInvoiceExternalCode: input.invoiceExternalCode,
@@ -247,6 +262,9 @@ export const createCreditNoteInAbraFlexiWorkflow = createWorkflow(
           newRefunds,
           triggeredBy: input.triggeredBy,
           invoiceExternalCode: resolved.order.metadata?.abra_flexi_invoice_code as string,
+          hadEarlierCreditNotes:
+            Array.isArray(resolved.order.metadata?.abra_flexi_recorded_refund_ids) &&
+            (resolved.order.metadata!.abra_flexi_recorded_refund_ids as string[]).length > 0,
         })
       )
       const created = createCreditNotesForNewRefundsStep(createInput)

@@ -187,6 +187,75 @@ describe("createCreditNotesForNewRefundsStepFn", () => {
     expect(sentPayload.originalInvoiceExternalCode).toBe("order-ord_1")
   })
 
+  // Live test 2026-10-26 (order #12): 300 refunded first, then the cancel refunded 2390, but the
+  // cancel's credit note mirrored the whole order (-2690) -- 300 credited twice in ABRA.
+  describe("order_canceled credits only what the cancel refunded", () => {
+    function setup() {
+      const createCreditNote = vi.fn().mockResolvedValue({ id: "1", code: "c" })
+      const container = mockContainer({
+        abraFlexi: {
+          getClient: () => ({ createCreditNote }),
+          getOptions: () => ({ vatPayer: false }),
+        },
+      })
+      return { createCreditNote, container }
+    }
+
+    it("uses a lump sum when an earlier credit note exists", async () => {
+      const { createCreditNote, container } = setup()
+      await createCreditNotesForNewRefundsStepFn(
+        {
+          order,
+          newRefunds: [refund({ id: "ref_2", amount: 70 })],
+          triggeredBy: "order_canceled",
+          invoiceExternalCode: "order-ord_1",
+          hadEarlierCreditNotes: true,
+        },
+        { container } as never
+      )
+      expect(createCreditNote.mock.calls[0]![0].lines).toEqual([
+        { name: "Refund", quantity: -1, unitPrice: 70, vatRate: undefined },
+      ])
+    })
+
+    it("uses a lump sum when the refund is not the whole invoice", async () => {
+      const { createCreditNote, container } = setup()
+      await createCreditNotesForNewRefundsStepFn(
+        {
+          order,
+          newRefunds: [refund({ id: "ref_1", amount: 60 })],
+          triggeredBy: "order_canceled",
+          invoiceExternalCode: "order-ord_1",
+        },
+        { container } as never
+      )
+      expect(createCreditNote.mock.calls[0]![0].lines[0]).toMatchObject({
+        quantity: -1,
+        unitPrice: 60,
+      })
+    })
+
+    it("mirrors the order at most once when one cancel makes several refunds", async () => {
+      const { createCreditNote, container } = setup()
+      await createCreditNotesForNewRefundsStepFn(
+        {
+          order,
+          newRefunds: [refund({ id: "ref_1", amount: 100 }), refund({ id: "ref_2", amount: 100 })],
+          triggeredBy: "order_canceled",
+          invoiceExternalCode: "order-ord_1",
+        },
+        { container } as never
+      )
+      expect(createCreditNote.mock.calls[0]![0].lines[0]).toMatchObject({
+        name: "Tričko",
+        quantity: -1,
+      })
+      expect(createCreditNote.mock.calls[1]![0].lines).toEqual([
+        { name: "Refund", quantity: -1, unitPrice: 100, vatRate: undefined },
+      ])
+    })
+  })
+
   it("builds a lump-sum payload for triggeredBy: payment_refunded", async () => {
     const createCreditNote = vi
       .fn()
