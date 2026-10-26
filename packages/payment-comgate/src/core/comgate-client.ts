@@ -115,6 +115,14 @@ export class ComgateClient {
     )
   }
 
+  // Cancels a PENDING payment so it can no longer be paid; Comgate answers 1400 otherwise.
+  async cancel(transId: string): Promise<{ code: number; message: string }> {
+    return this.request<{ code: number; message: string }>(
+      "DELETE",
+      `/payment/transId/${encodeURIComponent(transId)}.json`
+    )
+  }
+
   async cancelPreauth(transId: string): Promise<{ code: number; message: string }> {
     return this.request<{ code: number; message: string }>(
       "DELETE",

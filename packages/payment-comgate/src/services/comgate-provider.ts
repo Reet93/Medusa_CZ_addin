@@ -55,6 +55,16 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
     }
   }
 
+  // The storefront sends the cart email in the session data (guests have no customer context).
+  private customerEmail(input: {
+    data?: Record<string, unknown>
+    context?: Record<string, unknown>
+  }): string | undefined {
+    const customer = input.context?.customer as { email?: unknown } | undefined
+    const email = input.data?.email ?? customer?.email
+    return typeof email === "string" && email.includes("@") ? email : undefined
+  }
+
   async initiatePayment(input: {
     amount: unknown
     currency_code: string
@@ -70,6 +80,7 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
       curr: input.currency_code.toUpperCase(),
       label: `Order ${refId}`.slice(0, 16),
       refId,
+      email: this.customerEmail(input),
       prepareOnly: true,
       preauth: this.capture_ === "manual",
       method: this.options_.method ?? "ALL",
@@ -140,8 +151,23 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
   async cancelPayment(input: { data?: Record<string, unknown> }) {
     return this.cancelOrDelete(input)
   }
+  // Medusa deletes the old session whenever a new one is initiated (the storefront does that
+  // on every pay click, so a retry after a cancelled gateway visit gets a fresh tx). A still
+  // PENDING tx is cancelled so it can't be paid behind a deleted session; a PAID/AUTHORIZED
+  // one makes this throw, which Medusa logs while keeping the session, so the webhook can
+  // still complete the order.
   async deletePayment(input: { data?: Record<string, unknown> }) {
-    return this.cancelOrDelete(input)
+    const transId = input.data?.transId as string | undefined
+    if (!transId) {
+      return { data: input.data }
+    }
+    const res = await this.client_.status(transId)
+    if (res.status === "PENDING") {
+      await this.client_.cancel(transId)
+    } else if (res.status !== "CANCELLED") {
+      throw new Error(`Comgate: not deleting session, tx ${transId} is ${res.status}`)
+    }
+    return { data: input.data }
   }
   async updatePayment(input: {
     amount: unknown

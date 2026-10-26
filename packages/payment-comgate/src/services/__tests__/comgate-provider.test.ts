@@ -5,13 +5,19 @@ const status = vi.fn()
 const capturePreauth = vi.fn()
 const refund = vi.fn()
 const cancelPreauth = vi.fn()
+const cancel = vi.fn()
 vi.mock("../../core/comgate-client", async (orig) => {
   const actual = await orig<typeof import("../../core/comgate-client")>()
   return {
     ...actual,
-    ComgateClient: vi
-      .fn()
-      .mockImplementation(() => ({ create, status, capturePreauth, refund, cancelPreauth })),
+    ComgateClient: vi.fn().mockImplementation(() => ({
+      create,
+      status,
+      capturePreauth,
+      refund,
+      cancelPreauth,
+      cancel,
+    })),
   }
 })
 
@@ -89,6 +95,38 @@ describe("initiatePayment", () => {
   })
 })
 
+// Without an email Comgate asks the customer to type it again on its page (live test, 2026-10-26).
+describe("initiatePayment email", () => {
+  beforeEach(() => {
+    create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
+  })
+  it("passes the email the storefront put in the session data", async () => {
+    await makeProvider().initiatePayment({
+      amount: 10,
+      currency_code: "czk",
+      data: { email: "jan@example.com" },
+    } as never)
+    expect(create.mock.calls[0]![0].email).toBe("jan@example.com")
+  })
+  it("falls back to the logged-in customer's email", async () => {
+    await makeProvider().initiatePayment({
+      amount: 10,
+      currency_code: "czk",
+      data: {},
+      context: { customer: { email: "eva@example.com" } },
+    } as never)
+    expect(create.mock.calls[0]![0].email).toBe("eva@example.com")
+  })
+  it("omits anything that isn't an email", async () => {
+    await makeProvider().initiatePayment({
+      amount: 10,
+      currency_code: "czk",
+      data: { email: 5 },
+    } as never)
+    expect(create.mock.calls[0]![0].email).toBeUndefined()
+  })
+})
+
 describe("getPaymentStatus maps Comgate→Medusa", () => {
   it.each([
     ["PAID", "captured"],
@@ -161,6 +199,40 @@ describe("cancelPayment / deletePayment", () => {
       data: { transId: "T1" },
     } as never)
     expect(cancelPreauth).not.toHaveBeenCalled()
+  })
+})
+
+// deletePayment runs when the storefront replaces a session (a retry after a cancelled or
+// abandoned gateway visit). The old Comgate tx must not stay payable behind a deleted session.
+describe("deletePayment", () => {
+  it("cancels a still-pending tx at Comgate", async () => {
+    status.mockResolvedValue({ code: 0, status: "PENDING" })
+    cancel.mockResolvedValue({ code: 0, message: "OK" })
+    await makeProvider().deletePayment({ data: { transId: "T1" } } as never)
+    expect(cancel).toHaveBeenCalledWith("T1")
+  })
+  it("leaves an already cancelled tx alone", async () => {
+    status.mockResolvedValue({ code: 0, status: "CANCELLED" })
+    await makeProvider().deletePayment({ data: { transId: "T1" } } as never)
+    expect(cancel).not.toHaveBeenCalled()
+  })
+  it("refuses to delete a session whose tx is already paid", async () => {
+    status.mockResolvedValue({ code: 0, status: "PAID" })
+    await expect(
+      makeProvider().deletePayment({ data: { transId: "T1" } } as never)
+    ).rejects.toThrow(/PAID/)
+    expect(cancel).not.toHaveBeenCalled()
+  })
+  it("refuses when the tx gets paid between the status check and the cancel", async () => {
+    status.mockResolvedValue({ code: 0, status: "PENDING" })
+    cancel.mockRejectedValue(new Error("Comgate code 1400"))
+    await expect(
+      makeProvider().deletePayment({ data: { transId: "T1" } } as never)
+    ).rejects.toThrow()
+  })
+  it("is a no-op without a transId", async () => {
+    await makeProvider().deletePayment({ data: {} } as never)
+    expect(status).not.toHaveBeenCalled()
   })
 })
 

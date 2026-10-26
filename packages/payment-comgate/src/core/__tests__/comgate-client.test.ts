@@ -155,4 +155,12 @@ describe("ComgateClient.status/refund/preauth", () => {
     const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
     expect(call[1].method).toBe("DELETE")
   })
+
+  it("cancels a pending payment with DELETE on the payment resource", async () => {
+    mockFetchOnce(200, { code: 0, message: "OK" })
+    await new ComgateClient(opts).cancel("AB12-CD34")
+    const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]!
+    expect(call[0]).toMatch(/\/payment\/transId\/AB12-CD34\.json$/)
+    expect(call[1].method).toBe("DELETE")
+  })
 })
