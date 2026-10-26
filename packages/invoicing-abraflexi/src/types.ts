@@ -7,6 +7,11 @@ export interface AbraFlexiOptions {
   password: string
   /** default false — the business is currently "neplátce" (not VAT-registered) */
   vatPayer?: boolean
+  /**
+   * Invoice line name per shipping method name. Medusa stores shipping option names once
+   * (often in English); unknown names are used as they are.
+   */
+  shippingLineNames?: Record<string, string>
 }
 
 export interface AbraFlexiCustomer {

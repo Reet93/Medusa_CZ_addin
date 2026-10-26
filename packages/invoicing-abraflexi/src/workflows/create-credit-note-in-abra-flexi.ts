@@ -137,7 +137,8 @@ export async function createCreditNotesForNewRefundsStepFn(
     return new StepResponse([])
   }
   const abraFlexi = container.resolve<AbraFlexiModuleService>(ABRA_FLEXI_MODULE)
-  const config = { vatPayer: !!abraFlexi.getOptions().vatPayer }
+  const { vatPayer, shippingLineNames } = abraFlexi.getOptions()
+  const config = { vatPayer: !!vatPayer, shippingLineNames }
   const client = abraFlexi.getClient()
   const created: CreatedCreditNote[] = []
   // A cancel mirrors the invoice lines only for a refund of the whole invoice with nothing credited

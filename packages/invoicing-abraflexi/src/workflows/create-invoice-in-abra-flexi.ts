@@ -73,7 +73,8 @@ export async function mapOrderToPayloadStepFn(
   { container }: StepCtx
 ): Promise<StepResponse<AbraFlexiInvoicePayload>> {
   const abraFlexi = container.resolve<AbraFlexiModuleService>(ABRA_FLEXI_MODULE)
-  const payload = mapOrderToAbraFlexiInvoice(order, { vatPayer: !!abraFlexi.getOptions().vatPayer })
+  const { vatPayer, shippingLineNames } = abraFlexi.getOptions()
+  const payload = mapOrderToAbraFlexiInvoice(order, { vatPayer: !!vatPayer, shippingLineNames })
   return new StepResponse(payload)
 }
 const mapOrderToPayloadStep = createStep(

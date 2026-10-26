@@ -5,6 +5,7 @@ import type { AbraFlexiCustomer, AbraFlexiInvoiceLine, AbraFlexiInvoicePayload }
 
 export interface AbraFlexiMapperConfig {
   vatPayer: boolean
+  shippingLineNames?: Record<string, string>
 }
 
 function isoDate(date: Date): string {
@@ -70,7 +71,7 @@ export function mapOrderToAbraFlexiInvoice(
   // under-billed by the shipping amount. `amount` is a BigNumberValue (BigNumberJS |
   // number | string | IBigNumber), unlike OrderLineItemDTO.unit_price, hence Number(...).
   const shippingLines: AbraFlexiInvoiceLine[] = (order.shipping_methods ?? []).map((method) => ({
-    name: method.name,
+    name: config.shippingLineNames?.[method.name] ?? method.name,
     quantity: 1,
     unitPrice: Number(method.amount),
     vatRate: config.vatPayer ? CZ_VAT_RATE_BASIC : undefined,

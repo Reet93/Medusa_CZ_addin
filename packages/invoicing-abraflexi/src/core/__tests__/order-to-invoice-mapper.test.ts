@@ -120,6 +120,23 @@ describe("mapOrderToAbraFlexiInvoice", () => {
     expect(payload.vatPayer).toBe(true)
   })
 
+  it("names shipping lines from shippingLineNames, keeping unknown names", () => {
+    const order = baseOrder({
+      shipping_methods: [
+        { name: "Packeta home delivery", amount: 129 },
+        { name: "Courier", amount: 50 },
+      ] as OrderDTO["shipping_methods"],
+    })
+    const payload = mapOrderToAbraFlexiInvoice(order, {
+      vatPayer: false,
+      shippingLineNames: { "Packeta home delivery": "Doprava: doručení na adresu (Zásilkovna)" },
+    })
+    expect(payload.lines.slice(-2).map((l) => l.name)).toEqual([
+      "Doprava: doručení na adresu (Zásilkovna)",
+      "Courier",
+    ])
+  })
+
   it("appends a line for each shipping method, after the item lines", () => {
     const order = baseOrder({
       shipping_methods: [{ name: "Doprava", amount: 79 }] as OrderDTO["shipping_methods"],
