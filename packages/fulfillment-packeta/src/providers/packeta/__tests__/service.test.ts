@@ -112,6 +112,44 @@ describe("canCalculate / calculatePrice", () => {
   })
 })
 
+// Shops that store product weight in grams (Mente: 450 for a robe) set weightUnit "g";
+// Packeta's bands and createPacket work in kilograms.
+describe("weightUnit", () => {
+  const twoBands = {
+    ...options,
+    weightUnit: "g" as const,
+    priceTable: {
+      cz: {
+        bands: [
+          { maxWeight: 5, price: 79 },
+          { maxWeight: 10, price: 99 },
+        ],
+      },
+    },
+  }
+  it("calculatePrice converts grams to kilograms before picking the band", async () => {
+    const res = await makeProvider(twoBands).calculatePrice(
+      {} as never,
+      {} as never,
+      {
+        shipping_address: { country_code: "cz" },
+        items: [{ variant: { weight: 450 }, quantity: 1 }],
+      } as never
+    )
+    expect(res).toMatchObject({ calculated_amount: 79 })
+  })
+  it("createFulfillment sends kilograms", async () => {
+    createPacket.mockResolvedValue({ id: "1", barcode: "Z1" })
+    await makeProvider(twoBands).createFulfillment(
+      { pickup_point_id: "79" },
+      [{ variant: { weight: 450 }, quantity: 2 }] as never,
+      { id: "order_1", item_total: 100, shipping_address: {} } as never,
+      {} as never
+    )
+    expect(createPacket.mock.calls[0]![0].weight).toBeCloseTo(0.9)
+  })
+})
+
 describe("validateFulfillmentData", () => {
   it("normalizes an internal point and persists it (server validation off)", async () => {
     const provider = makeProvider({ ...options, validatePointServerSide: false })
@@ -223,6 +261,32 @@ describe("createFulfillment", () => {
     expect(createPacket).toHaveBeenCalledWith(
       expect.objectContaining({ cod: 500, currency: "CZK" })
     )
+  })
+})
+
+// What Medusa 2.17's createOrderFulfillmentWorkflow really passes: fulfillment items carry only
+// line_item_id/quantity/title, the variant weights are on order.items (live test, 2026-10-26).
+describe("createFulfillment weight from order items", () => {
+  it("looks the weight up on order.items by line_item_id", async () => {
+    createPacket.mockResolvedValue({ id: "1", barcode: "Z1" })
+    await makeProvider({ ...options, weightUnit: "g" }).createFulfillment(
+      { pickup_point_id: "79" },
+      [
+        { line_item_id: "li_1", quantity: 1, title: "Robe" },
+        { line_item_id: "li_2", quantity: 2, title: "Belt" },
+      ] as never,
+      {
+        id: "order_1",
+        item_total: 100,
+        shipping_address: {},
+        items: [
+          { id: "li_1", variant: { weight: 450 } },
+          { id: "li_2", variant: { weight: 100 } },
+        ],
+      } as never,
+      {} as never
+    )
+    expect(createPacket.mock.calls[0]![0].weight).toBeCloseTo(0.65)
   })
 })
 

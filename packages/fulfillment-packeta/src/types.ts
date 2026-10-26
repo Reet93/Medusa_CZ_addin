@@ -30,6 +30,7 @@ export interface PacketaOptions {
   labelFormat?: string // default "A6 on A4"
   optionId?: string // shipping option id this provider serves; default "packeta-pickup"
   optionName?: string // default "Packeta pickup point"
+  weightUnit?: "g" | "kg" // unit of the product/variant weights in Medusa; default "kg"
 }
 
 export type PickupPointType = "internal" | "external"

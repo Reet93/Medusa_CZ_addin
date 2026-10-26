@@ -25,6 +25,22 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     this.client_ = new PacketaClient({ apiPassword: options.apiPassword })
   }
 
+  // Packeta's price bands and createPacket work in kilograms; Medusa leaves the unit to the shop.
+  private itemsWeightKg_(
+    items: Array<Record<string, any>>,
+    orderItems: Array<Record<string, any>> = []
+  ): number {
+    const byId = new Map(orderItems.map((i) => [i?.id, i]))
+    const total = items.reduce((sum, it) => {
+      // Medusa's fulfillment items carry only line_item_id; the variant is on the order item.
+      const variant = it?.variant ?? byId.get(it?.line_item_id)?.variant
+      return (
+        sum + (Number(variant?.weight ?? it?.weight ?? 0) || 0) * (Number(it?.quantity ?? 1) || 0)
+      )
+    }, 0)
+    return this.options_.weightUnit === "g" ? total / 1000 : total
+  }
+
   private get optionId_(): string {
     return this.options_.optionId ?? "packeta-pickup"
   }
@@ -57,11 +73,7 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
       )
     }
     const items = (context.items as Array<Record<string, any>> | undefined) ?? []
-    const weight = items.reduce(
-      (sum, it) =>
-        sum + (Number(it?.variant?.weight ?? it?.weight ?? 0) || 0) * (it?.quantity ?? 1),
-      0
-    )
+    const weight = this.itemsWeightKg_(items)
     const subtotal = Number((context.item_total as number) ?? (context.subtotal as number) ?? 0)
     const amount = calculateShippingPrice(this.options_.priceTable, country, weight, {
       cod: !!data.cod,
@@ -114,12 +126,7 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
   ): Promise<{ data: Record<string, unknown>; labels: never[] }> {
     const addr = (order?.shipping_address ?? {}) as Record<string, any>
     const isExternal = (data.pickup_point_type as string) === "external"
-    const weight =
-      items.reduce(
-        (sum, it) =>
-          sum + (Number(it?.variant?.weight ?? it?.weight ?? 0) || 0) * (it?.quantity ?? 1),
-        0
-      ) || 0
+    const weight = this.itemsWeightKg_(items, (order?.items as Array<Record<string, any>>) ?? [])
     const cod = data.cod ? Number(data.cod_amount ?? order?.item_total ?? 0) : undefined
 
     const result = await this.client_.createPacket({
