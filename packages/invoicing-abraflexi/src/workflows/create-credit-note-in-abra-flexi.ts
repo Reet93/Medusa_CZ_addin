@@ -190,6 +190,37 @@ const persistRecordedRefundIdsStep = createStep(
   persistRecordedRefundIdsStepFn
 )
 
+export const ABRA_FLEXI_CREDIT_NOTE_CREATED = "abra_flexi.credit_note_created"
+
+// Lets the shop act once a credit note exists (e.g. the cancel / refund email with its PDF).
+// Emitted only for credit notes created in this run, after their refund ids are persisted.
+export async function emitCreditNotesCreatedStepFn(
+  input: { orderId: string; triggeredBy: CreditNoteTrigger; created: CreatedCreditNote[] },
+  { container }: StepCtx
+): Promise<StepResponse<void>> {
+  if (input.created.length === 0) {
+    return new StepResponse(undefined)
+  }
+  const eventBus = container.resolve(Modules.EVENT_BUS)
+  await eventBus.emit(
+    input.created.map((c) => ({
+      name: ABRA_FLEXI_CREDIT_NOTE_CREATED,
+      data: {
+        order_id: input.orderId,
+        refund_id: c.refundId,
+        credit_note_id: c.creditNoteId,
+        credit_note_code: c.creditNoteCode,
+        triggered_by: input.triggeredBy,
+      },
+    }))
+  )
+  return new StepResponse(undefined)
+}
+const emitCreditNotesCreatedStep = createStep(
+  "emit-abra-flexi-credit-notes-created",
+  emitCreditNotesCreatedStepFn
+)
+
 export const createCreditNoteInAbraFlexiWorkflow = createWorkflow(
   "create-credit-note-in-abra-flexi",
   (input: CreateCreditNoteInAbraFlexiInput) => {
@@ -224,7 +255,15 @@ export const createCreditNoteInAbraFlexiWorkflow = createWorkflow(
         order: resolved.order,
         newRefundIds: created.map((c) => c.refundId),
       }))
-      return persistRecordedRefundIdsStep(persistInput)
+      const persisted = persistRecordedRefundIdsStep(persistInput)
+
+      const emitInput = transform({ resolved, created, input }, ({ resolved, created, input }) => ({
+        orderId: resolved.order.id,
+        triggeredBy: input.triggeredBy,
+        created,
+      }))
+      emitCreditNotesCreatedStep(emitInput)
+      return persisted
     })
 
     const result = transform(

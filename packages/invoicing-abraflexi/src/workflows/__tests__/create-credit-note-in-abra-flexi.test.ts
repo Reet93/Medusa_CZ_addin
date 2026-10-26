@@ -4,6 +4,8 @@ import {
   listNewRefundsStepFn,
   createCreditNotesForNewRefundsStepFn,
   persistRecordedRefundIdsStepFn,
+  emitCreditNotesCreatedStepFn,
+  ABRA_FLEXI_CREDIT_NOTE_CREATED,
 } from "../create-credit-note-in-abra-flexi"
 import { AbraFlexiApiError } from "../../core/abra-flexi-client"
 import type { OrderDTO, RefundDTO } from "@medusajs/framework/types"
@@ -341,5 +343,55 @@ describe("persistRecordedRefundIdsStepFn", () => {
       metadata: { abra_flexi_recorded_refund_ids: ["ref_1", "ref_2"] },
     })
     expect(response.output).toEqual(["ref_1", "ref_2"])
+  })
+})
+
+// Lets the shop email the customer with the credit note PDF (cancel / refund emails).
+describe("emitCreditNotesCreatedStepFn", () => {
+  it("emits one abra_flexi.credit_note_created per created credit note", async () => {
+    const emit = vi.fn().mockResolvedValue(undefined)
+    await emitCreditNotesCreatedStepFn(
+      {
+        orderId: "ord_1",
+        triggeredBy: "order_canceled",
+        created: [
+          { refundId: "ref_1", creditNoteId: "25", creditNoteCode: "VF1-0025/2026" },
+          { refundId: "ref_2", creditNoteId: "26", creditNoteCode: "VF1-0026/2026" },
+        ],
+      },
+      { container: mockContainer({ event_bus: { emit } }) } as never
+    )
+    expect(ABRA_FLEXI_CREDIT_NOTE_CREATED).toBe("abra_flexi.credit_note_created")
+    expect(emit).toHaveBeenCalledWith([
+      {
+        name: "abra_flexi.credit_note_created",
+        data: {
+          order_id: "ord_1",
+          refund_id: "ref_1",
+          credit_note_id: "25",
+          credit_note_code: "VF1-0025/2026",
+          triggered_by: "order_canceled",
+        },
+      },
+      {
+        name: "abra_flexi.credit_note_created",
+        data: {
+          order_id: "ord_1",
+          refund_id: "ref_2",
+          credit_note_id: "26",
+          credit_note_code: "VF1-0026/2026",
+          triggered_by: "order_canceled",
+        },
+      },
+    ])
+  })
+
+  it("emits nothing when no credit note was created", async () => {
+    const emit = vi.fn()
+    await emitCreditNotesCreatedStepFn(
+      { orderId: "ord_1", triggeredBy: "payment_refunded", created: [] },
+      { container: mockContainer({ event_bus: { emit } }) } as never
+    )
+    expect(emit).not.toHaveBeenCalled()
   })
 })

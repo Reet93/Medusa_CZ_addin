@@ -87,9 +87,10 @@ plugins: [
 
 ## Events emitted
 
-| Event                                                       | When                                                                                                                 | Payload                                  |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| `abra_flexi.invoice_created` (`ABRA_FLEXI_INVOICE_CREATED`) | After an invoice is created and its id saved to `order.metadata`. Not emitted when the order already had an invoice. | `{ order_id, invoice_id, invoice_code }` |
+| Event                                                               | When                                                                                                                                                                                        | Payload                                                                   |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `abra_flexi.invoice_created` (`ABRA_FLEXI_INVOICE_CREATED`)         | After an invoice is created and its id saved to `order.metadata`. Not emitted when the order already had an invoice.                                                                        | `{ order_id, invoice_id, invoice_code }`                                  |
+| `abra_flexi.credit_note_created` (`ABRA_FLEXI_CREDIT_NOTE_CREATED`) | Once per credit note created in a run (order cancel or refund), after its refund id is saved to `order.metadata`. The PDF is `faktura-vydana/ext:medusa-credit:<order_id>:<refund_id>.pdf`. | `{ order_id, refund_id, credit_note_id, credit_note_code, triggered_by }` |
 
 Subscribe to it to act once the invoice exists, e.g. send the order confirmation with the
 invoice PDF attached.
