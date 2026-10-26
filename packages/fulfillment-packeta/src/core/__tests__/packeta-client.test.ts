@@ -43,6 +43,26 @@ describe("PacketaClient.createPacket", () => {
     expect(body.indexOf("<apiPassword>")).toBeLessThan(body.indexOf("<name>"))
   })
 
+  // Packeta puts the actual reason in <detail>; without it the admin only saw
+  // "Failed to validate attributes. See detail." (live test, 2026-10-26).
+  it("puts the attribute fault details into the error message", async () => {
+    mockFetchOnce(
+      200,
+      `<response><status>fault</status><fault>PacketAttributesFault</fault><string>Failed to validate attributes. See detail.</string>` +
+        `<detail><attributes><fault><name>user_id</name><fault>Order nr. 12: The client account is not approved for posting parcels.</fault></fault>` +
+        `<fault><name>weight</name><fault>Too heavy.</fault></fault></attributes></detail></response>`
+    )
+    const err = await new PacketaClient(opts)
+      .createPacket({ number: "12", name: "A", surname: "B", addressId: "79", value: 1, weight: 1 })
+      .catch((e) => e)
+    expect(err).toBeInstanceOf(PacketaError)
+    expect(err.fault).toBe("PacketAttributesFault")
+    expect(err.message).toContain(
+      "user_id: Order nr. 12: The client account is not approved for posting parcels."
+    )
+    expect(err.message).toContain("weight: Too heavy.")
+  })
+
   it("throws PacketaError on a fault response", async () => {
     mockFetchOnce(
       200,

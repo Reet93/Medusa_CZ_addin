@@ -290,6 +290,33 @@ describe("createFulfillment weight from order items", () => {
   })
 })
 
+// Plain Errors reach the admin/store as "An unknown error occurred." (500); MedusaErrors keep the text.
+describe("errors the admin can read", () => {
+  it("an invalid pickup point is INVALID_DATA (400)", async () => {
+    validatePoint.mockResolvedValue({ isValid: false, errors: ["PointNotFound"] })
+    const err = await makeProvider()
+      .validateFulfillmentData({}, { pickup_point_id: "99999999" }, {})
+      .catch((e) => e)
+    expect(err.type).toBe("invalid_data")
+    expect(err.message).toMatch(/PointNotFound/)
+  })
+  it("a Packeta refusal of the packet is NOT_ALLOWED with Packeta's reason", async () => {
+    createPacket.mockRejectedValue(
+      new Error("Failed to validate attributes: user_id: account not approved")
+    )
+    const err = await makeProvider()
+      .createFulfillment(
+        { pickup_point_id: "79" },
+        [] as never,
+        { id: "o", shipping_address: {} } as never,
+        {} as never
+      )
+      .catch((e) => e)
+    expect(err.type).toBe("not_allowed")
+    expect(err.message).toMatch(/Packeta: .*account not approved/)
+  })
+})
+
 describe("cancelFulfillment", () => {
   it("cancels the stored packet id", async () => {
     cancelPacket.mockResolvedValue(undefined)

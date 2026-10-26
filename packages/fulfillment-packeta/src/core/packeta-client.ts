@@ -18,6 +18,18 @@ export class PacketaError extends Error {
   }
 }
 
+// The reason for an attribute fault is only in <detail><attributes><fault>, e.g.
+// "user_id: Order nr. 12: The client account is not approved for posting parcels."
+function faultMessage(root: Record<string, any>): string {
+  const base = typeof root.string === "string" ? root.string : "Packeta API fault"
+  const faults = root.detail?.attributes?.fault
+  const list = (Array.isArray(faults) ? faults : faults ? [faults] : []) as Array<
+    Record<string, unknown>
+  >
+  const details = list.map((f) => `${String(f.name ?? "")}: ${String(f.fault ?? "")}`).join("; ")
+  return details ? `${base} ${details}` : base
+}
+
 export interface PacketaClientOptions {
   apiPassword: string
   url?: string
@@ -68,10 +80,7 @@ export class PacketaClient {
     const root = parsed.response ?? Object.values(parsed)[0] ?? {}
     const status = root["@_status"] ?? root.status
     if (status === "fault" || root.fault) {
-      throw new PacketaError(
-        String(root.fault ?? "fault"),
-        String(root.string ?? root.detail ?? "Packeta API fault")
-      )
+      throw new PacketaError(String(root.fault ?? "fault"), faultMessage(root))
     }
     return (root.result ?? root) as T
   }

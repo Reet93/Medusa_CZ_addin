@@ -1,4 +1,4 @@
-import { AbstractFulfillmentProviderService } from "@medusajs/framework/utils"
+import { AbstractFulfillmentProviderService, MedusaError } from "@medusajs/framework/utils"
 import { PacketaClient } from "../../core/packeta-client.js"
 import { calculateShippingPrice } from "../../core/pricing.js"
 import { validatePoint } from "../../core/widget-validate.js"
@@ -110,7 +110,8 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
           : { id: normalized.pickup_point_id }
       const { isValid, errors } = await validatePoint({ apiKey: this.options_.apiKey, point })
       if (!isValid) {
-        throw new Error(
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
           `Packeta: invalid pickup point — ${errors.join(", ") || "validation failed"}`
         )
       }
@@ -129,21 +130,26 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     const weight = this.itemsWeightKg_(items, (order?.items as Array<Record<string, any>>) ?? [])
     const cod = data.cod ? Number(data.cod_amount ?? order?.item_total ?? 0) : undefined
 
-    const result = await this.client_.createPacket({
-      number: String(order?.display_id ?? order?.id ?? ""),
-      name: String(addr.first_name ?? ""),
-      surname: String(addr.last_name ?? ""),
-      email: order?.email ? String(order.email) : undefined,
-      phone: addr.phone ? String(addr.phone) : undefined,
-      addressId: isExternal
-        ? String(data.carrier_id ?? data.pickup_point_id)
-        : String(data.pickup_point_id),
-      carrierPickupPoint: isExternal ? String(data.carrier_pickup_point_id ?? "") : undefined,
-      value: Number(order?.item_total ?? 0),
-      weight,
-      ...(cod != null ? { cod, currency: this.options_.defaultCurrency ?? "CZK" } : {}),
-      eshop: this.options_.eshop,
-    })
+    // A MedusaError keeps Packeta's reason visible in the admin (a plain Error is "unknown error").
+    const result = await this.client_
+      .createPacket({
+        number: String(order?.display_id ?? order?.id ?? ""),
+        name: String(addr.first_name ?? ""),
+        surname: String(addr.last_name ?? ""),
+        email: order?.email ? String(order.email) : undefined,
+        phone: addr.phone ? String(addr.phone) : undefined,
+        addressId: isExternal
+          ? String(data.carrier_id ?? data.pickup_point_id)
+          : String(data.pickup_point_id),
+        carrierPickupPoint: isExternal ? String(data.carrier_pickup_point_id ?? "") : undefined,
+        value: Number(order?.item_total ?? 0),
+        weight,
+        ...(cod != null ? { cod, currency: this.options_.defaultCurrency ?? "CZK" } : {}),
+        eshop: this.options_.eshop,
+      })
+      .catch((e: Error) => {
+        throw new MedusaError(MedusaError.Types.NOT_ALLOWED, `Packeta: ${e.message}`)
+      })
 
     return {
       data: { ...data, packet_id: result.id, barcode: result.barcode },
