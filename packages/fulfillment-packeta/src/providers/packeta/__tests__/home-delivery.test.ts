@@ -80,6 +80,14 @@ describe("prices per delivery type", () => {
   })
 })
 
+describe("adding a door option to the cart", () => {
+  // Door options carry no shipping-method data, and Medusa then passes data undefined (live 500).
+  it("prices it when Medusa passes no method data", async () => {
+    const res = await provider().calculatePrice(HOME as never, undefined as never, cart({}) as never)
+    expect(res.calculated_amount).toBe(129)
+  })
+})
+
 describe("validateFulfillmentData for delivery to the door", () => {
   it("accepts a complete Czech address without a pickup point", async () => {
     const data = await provider().validateFulfillmentData(HOME as never, {} as never, cart({}) as never)

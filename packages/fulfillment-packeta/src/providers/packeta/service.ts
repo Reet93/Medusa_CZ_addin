@@ -147,7 +147,7 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     const weight = this.itemsWeightKg_(items)
     const subtotal = Number((context.item_total as number) ?? (context.subtotal as number) ?? 0)
     const amount = calculateShippingPrice(this.priceTable_(this.deliveryOf_(optionData)), country, weight, {
-      cod: !!data.cod,
+      cod: !!data?.cod,
       subtotal: subtotal || undefined,
     })
     return { calculated_amount: amount, is_calculated_price_tax_inclusive: false }
