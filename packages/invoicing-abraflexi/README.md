@@ -153,6 +153,18 @@ invoice PDF attached.
   the same unverified-by-default caveat as `code:FAKTURA` — confirm both via
   the live sandbox suite.
 
+## Invoice amounts and refunds
+
+Invoice lines use Medusa 2.17's totals calculations, including item/shipping
+adjustments and tax-inclusive prices. VAT invoices send net unit prices to
+Flexi; non-VAT invoices preserve the charged gross amount. Full credit notes
+mirror these discounted lines, and a gross payment refund is converted to net
+before the configured basic VAT rate is applied, so VAT is not added twice.
+
+This package still supports a single basic VAT class rather than mixed-rate
+allocation. Confirm the company, VAT configuration and representative document
+totals in the isolated ABRA E2E checks before live accounting use.
+
 ## Manual acceptance (once registered with real credentials)
 
 1. Place and pay for a test order (Comgate/GoPay sandbox, or manual capture via

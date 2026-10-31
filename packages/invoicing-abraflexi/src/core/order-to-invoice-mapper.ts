@@ -1,4 +1,10 @@
 import { isValidIco } from "@medusa-cz/shared"
+import {
+  BigNumber,
+  getLineItemTotals,
+  getShippingMethodTotals,
+  MathBN,
+} from "@medusajs/framework/utils"
 import type { OrderDTO } from "@medusajs/framework/types"
 import { ABRA_FLEXI_DEFAULT_DUE_DAYS, CZ_VAT_RATE_BASIC } from "../types.js"
 import type { AbraFlexiCustomer, AbraFlexiInvoiceLine, AbraFlexiInvoicePayload } from "../types.js"
@@ -58,10 +64,29 @@ export function mapOrderToAbraFlexiInvoice(
     if (item.quantity == null || !Number.isFinite(quantity) || quantity <= 0) {
       throw new Error(`Abra Flexi: order "${order.id}" item "${item.id}" has no valid quantity`)
     }
+    const totals = getLineItemTotals(
+      {
+        id: item.id,
+        unit_price: new BigNumber(item.unit_price),
+        quantity: new BigNumber(quantity),
+        is_tax_inclusive: item.is_tax_inclusive,
+        tax_lines: item.tax_lines,
+        adjustments: item.adjustments,
+      },
+      {}
+    )
+    // Medusa's final totals include discounts and respect tax-inclusive prices.
+    // Flexi receives a net price for VAT invoices and adds VAT exactly once.
+    const billedTotal = config.vatPayer
+      ? MathBN.sub(totals.total, totals.tax_total)
+      : MathBN.convert(totals.total)
+    if (!billedTotal.isFinite() || billedTotal.isNegative()) {
+      throw new Error("Abra Flexi: invalid invoice item total")
+    }
     return {
       name: item.title,
       quantity,
-      unitPrice: item.unit_price,
+      unitPrice: billedTotal.dividedBy(quantity).toNumber(),
       vatRate: config.vatPayer ? CZ_VAT_RATE_BASIC : undefined,
     }
   })
@@ -70,12 +95,30 @@ export function mapOrderToAbraFlexiInvoice(
   // into their own invoice lines (one per shipping method) so the invoice isn't
   // under-billed by the shipping amount. `amount` is a BigNumberValue (BigNumberJS |
   // number | string | IBigNumber), unlike OrderLineItemDTO.unit_price, hence Number(...).
-  const shippingLines: AbraFlexiInvoiceLine[] = (order.shipping_methods ?? []).map((method) => ({
-    name: config.shippingLineNames?.[method.name] ?? method.name,
-    quantity: 1,
-    unitPrice: Number(method.amount),
-    vatRate: config.vatPayer ? CZ_VAT_RATE_BASIC : undefined,
-  }))
+  const shippingLines: AbraFlexiInvoiceLine[] = (order.shipping_methods ?? []).map((method) => {
+    const totals = getShippingMethodTotals(
+      {
+        id: method.id,
+        amount: new BigNumber(method.amount),
+        is_tax_inclusive: method.is_tax_inclusive,
+        tax_lines: method.tax_lines,
+        adjustments: method.adjustments,
+      },
+      {}
+    )
+    const billedTotal = config.vatPayer
+      ? MathBN.sub(totals.total, totals.tax_total)
+      : MathBN.convert(totals.total)
+    if (!billedTotal.isFinite() || billedTotal.isNegative()) {
+      throw new Error("Abra Flexi: invalid invoice shipping total")
+    }
+    return {
+      name: config.shippingLineNames?.[method.name] ?? method.name,
+      quantity: 1,
+      unitPrice: billedTotal.toNumber(),
+      vatRate: config.vatPayer ? CZ_VAT_RATE_BASIC : undefined,
+    }
+  })
 
   const lines: AbraFlexiInvoiceLine[] = [...itemLines, ...shippingLines]
 

@@ -464,3 +464,24 @@ describe("emitCreditNotesCreatedStepFn", () => {
     expect(emit).not.toHaveBeenCalled()
   })
 })
+
+it("mirrors invoice lines for a full VAT-inclusive cancellation", async () => {
+  const createCreditNote = vi.fn().mockResolvedValue({ id: "cr_1", code: "ext:credit" })
+  const container = mockContainer({
+    abraFlexi: { getOptions: () => ({ vatPayer: true }), getClient: () => ({ createCreditNote }) },
+  })
+  await createCreditNotesForNewRefundsStepFn(
+    {
+      order,
+      newRefunds: [refund({ amount: 121 })],
+      triggeredBy: "order_canceled",
+      invoiceExternalCode: "ext:medusa-order:ord_1",
+    },
+    { container } as never
+  )
+  expect(createCreditNote.mock.calls[0]?.[0].lines[0]).toMatchObject({
+    name: "Tričko",
+    quantity: -1,
+    unitPrice: 100,
+  })
+})

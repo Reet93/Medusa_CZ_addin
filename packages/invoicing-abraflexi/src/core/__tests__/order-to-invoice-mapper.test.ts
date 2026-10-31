@@ -219,3 +219,70 @@ describe("creditNoteExternalCodeForRefund", () => {
     )
   })
 })
+
+describe("invoice amounts match checkout", () => {
+  it("includes a line discount across the original item quantity", () => {
+    const order = baseOrder({
+      items: [
+        {
+          id: "li_discount",
+          title: "Župan",
+          quantity: 2,
+          unit_price: 1000,
+          adjustments: [{ id: "adj_1", amount: 200 }],
+        },
+      ] as unknown as OrderDTO["items"],
+    })
+    expect(mapOrderToAbraFlexiInvoice(order, { vatPayer: false }).lines).toEqual([
+      { name: "Župan", quantity: 2, unitPrice: 900, vatRate: undefined },
+    ])
+  })
+
+  it("does not bill shipping removed by a shipping discount", () => {
+    const order = baseOrder({
+      items: [],
+      shipping_methods: [
+        {
+          id: "sm_1",
+          name: "Packeta",
+          amount: 79,
+          adjustments: [{ id: "adj_shipping", amount: 79 }],
+        },
+      ] as unknown as OrderDTO["shipping_methods"],
+    })
+    expect(mapOrderToAbraFlexiInvoice(order, { vatPayer: false }).lines[0]?.unitPrice).toBe(0)
+  })
+
+  it("removes included VAT from the discounted unit price before Flexi adds it", () => {
+    const order = baseOrder({
+      items: [
+        {
+          id: "li_vat",
+          title: "Župan",
+          quantity: 2,
+          unit_price: 121,
+          is_tax_inclusive: true,
+          tax_lines: [{ rate: 21 }],
+          adjustments: [{ id: "adj_vat", amount: 24.2, is_tax_inclusive: true }],
+        },
+      ] as unknown as OrderDTO["items"],
+    })
+    expect(mapOrderToAbraFlexiInvoice(order, { vatPayer: true }).lines[0]?.unitPrice).toBe(90)
+  })
+
+  it("keeps the paid tax-inclusive amount when the invoice does not declare VAT", () => {
+    const order = baseOrder({
+      items: [
+        {
+          id: "li_vat",
+          title: "Župan",
+          quantity: 1,
+          unit_price: 121,
+          is_tax_inclusive: true,
+          tax_lines: [{ rate: 21 }],
+        },
+      ] as unknown as OrderDTO["items"],
+    })
+    expect(mapOrderToAbraFlexiInvoice(order, { vatPayer: false }).lines[0]?.unitPrice).toBe(121)
+  })
+})

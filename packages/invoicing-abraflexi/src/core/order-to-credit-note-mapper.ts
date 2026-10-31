@@ -1,3 +1,4 @@
+import { MathBN } from "@medusajs/framework/utils"
 import type { OrderDTO } from "@medusajs/framework/types"
 import { CZ_VAT_RATE_BASIC } from "../types.js"
 import type { AbraFlexiInvoicePayload } from "../types.js"
@@ -51,7 +52,9 @@ export function mapRefundToLumpSumCreditNote(
       {
         name: lineName,
         quantity: -1,
-        unitPrice: refund.amount,
+        unitPrice: config.vatPayer
+          ? MathBN.div(refund.amount, MathBN.add(1, CZ_VAT_RATE_BASIC)).toNumber()
+          : refund.amount,
         vatRate: config.vatPayer ? CZ_VAT_RATE_BASIC : undefined,
       },
     ],

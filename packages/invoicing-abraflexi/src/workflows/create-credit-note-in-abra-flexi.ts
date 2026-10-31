@@ -6,7 +6,7 @@ import {
   when,
   transform,
 } from "@medusajs/framework/workflows-sdk"
-import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, MathBN, Modules } from "@medusajs/framework/utils"
 import type { MedusaContainer } from "@medusajs/framework"
 import type { OrderDTO, RefundDTO } from "@medusajs/framework/types"
 import { ABRA_FLEXI_MODULE } from "../modules/abra-flexi/index.js"
@@ -59,8 +59,13 @@ export async function resolveOrderByIdStepFn(
       // Whole items: Medusa 2.17 leaves items[].quantity undefined when it is selected
       // on its own ("items.quantity"), which ABRA rejected as null (live test, 2026-10-26).
       "items.*",
+      "items.adjustments.*",
+      "items.tax_lines.*",
       "shipping_methods.name",
       "shipping_methods.amount",
+      "shipping_methods.is_tax_inclusive",
+      "shipping_methods.adjustments.*",
+      "shipping_methods.tax_lines.*",
       "shipping_address.*",
       "billing_address.*",
       "payment_collections.payments.id",
@@ -145,8 +150,11 @@ export async function createCreditNotesForNewRefundsStepFn(
   // before; anything else (cancel after a partial refund, several refunds) is credited at the
   // refunded amount -- the full mirror credited 300 Kč twice on a live test order (2026-10-26).
   const invoiceTotal = mapOrderToAbraFlexiInvoice(input.order, config).lines.reduce(
-    (sum, line) => sum + line.quantity * line.unitPrice,
-    0
+    (sum, line) =>
+      sum.plus(
+        MathBN.mult(MathBN.mult(line.quantity, line.unitPrice), MathBN.add(1, line.vatRate ?? 0))
+      ),
+    MathBN.convert(0)
   )
   let mirrored = !!input.hadEarlierCreditNotes
 
@@ -155,7 +163,7 @@ export async function createCreditNotesForNewRefundsStepFn(
       const mirror =
         input.triggeredBy === "order_canceled" &&
         !mirrored &&
-        Number(refund.amount) === invoiceTotal
+        MathBN.eq(refund.amount, invoiceTotal)
       mirrored ||= mirror
       const payload = mirror
         ? mapOrderToFullCreditNote(input.order, config, refund.id)

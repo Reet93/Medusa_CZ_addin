@@ -136,3 +136,35 @@ describe("mapRefundToLumpSumCreditNote", () => {
     expect(payload.customer).toMatchObject({ name: "Jan Novák" })
   })
 })
+
+describe("credit-note totals", () => {
+  it("mirrors the discounted amount, not the original list price", () => {
+    const order = baseOrder({
+      items: [
+        {
+          id: "li_1",
+          title: "Župan",
+          quantity: 1,
+          unit_price: 1000,
+          adjustments: [{ id: "adj_1", amount: 100 }],
+        },
+      ] as unknown as OrderDTO["items"],
+    })
+    expect(mapOrderToFullCreditNote(order, { vatPayer: false }, "ref_1").lines[0]?.unitPrice).toBe(
+      900
+    )
+  })
+
+  it("does not add VAT on top of an already gross refund amount", () => {
+    const result = mapRefundToLumpSumCreditNote(
+      baseOrder(),
+      { vatPayer: true },
+      {
+        id: "ref_gross",
+        amount: 121,
+      }
+    )
+    expect(result.lines[0]?.unitPrice).toBe(100)
+    expect(result.lines[0]?.vatRate).toBe(CZ_VAT_RATE_BASIC)
+  })
+})
