@@ -121,16 +121,17 @@ invoice PDF attached.
   auto-repairs it later — it's a visible workflow failure at the time, for
   manual reconciliation in Abra Flexi directly. A periodic reconciliation
   job is a documented stretch goal, not built.
-- **Settlement-completeness / reconciliation.** Payment status is _asserted_,
-  not derived: the first capture on an order writes Abra Flexi's "paid
-  manually" status onto the whole invoice, regardless of whether that capture
-  covered the full invoice total (e.g. a partial/split-tender payment).
-  Nothing here computes "is this invoice fully paid" or cross-checks captured
-  amounts against invoice totals — under the direct-field-write approach
-  (see the gap above), there isn't a partial-paid state to compute into. A
-  periodic reconciliation job, or moving to the bank-record-based approach
-  that lets Abra Flexi track partial settlement itself, is a documented
-  stretch goal, not built.
+- **Payment completeness / reconciliation.** Before writing the invoice's
+  "paid manually" status, the workflow reads fresh Medusa captures across all
+  payment collections, subtracts refunds and checks that the net captured
+  amount covers the order total in the same currency. Authorized amounts and
+  canceled attempts do not count; duplicate capture/refund IDs count once.
+  Incomplete captures do not persist the payment-id guard, so a later capture
+  of the same payment can complete the update. This is a completeness guard,
+  not bank settlement reconciliation or partial-payment ledger entries in
+  Flexi. Existing paid flags are not retroactively repaired. The comparison is
+  against Medusa's total, not a fresh Flexi invoice read: invoice mapping
+  (including discounts and VAT configuration) must reconcile before live use.
 - **Wire-format field names.** `datVyd`/`splatnost`/`mena`/customer fields are
   verified against Abra Flexi's public docs; the line-items shape
   (`polozkyFaktury`/`faktura-vydana-polozka`) is corroborated by a community

@@ -6,7 +6,7 @@ import {
   when,
   transform,
 } from "@medusajs/framework/workflows-sdk"
-import { Modules } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, MathBN, Modules } from "@medusajs/framework/utils"
 import type { MedusaContainer } from "@medusajs/framework"
 import type { OrderDTO } from "@medusajs/framework/types"
 import { ABRA_FLEXI_MODULE } from "../modules/abra-flexi/index.js"
@@ -64,12 +64,99 @@ const assertInvoiceExistsStep = createStep(
   assertInvoiceExistsStepFn
 )
 
+type CoverageMoney = { id: string; amount: unknown }
+type CoveragePayment = {
+  currency_code: string
+  canceled_at?: unknown
+  captures?: CoverageMoney[]
+  refunds?: CoverageMoney[]
+}
+type CoverageOrder = {
+  total: unknown
+  currency_code: string
+  payment_collections?: Array<{ payments?: CoveragePayment[] }>
+}
+
+function validAmount(value: unknown) {
+  if (value == null || typeof value === "boolean" || value === "") {
+    throw new AbraFlexiApiError(0, "Abra Flexi: missing or invalid payment coverage amount", false)
+  }
+  const amount = MathBN.convert(value as never)
+  if (!amount.isFinite() || amount.isNegative()) {
+    throw new AbraFlexiApiError(0, "Abra Flexi: invalid payment coverage amount", false)
+  }
+  return amount
+}
+
+// A capture event is not evidence that the whole invoice has been paid. Read
+// fresh captures across the order's collections (including later captures on
+// the same payment), not authorized payment.amount or captured_at. Keep partial
+// captures unrecorded so a subsequent capture can complete this workflow.
+async function isFullyCaptured(orderId: string, container: MedusaContainer): Promise<boolean> {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+  const { data } = await query.graph({
+    entity: "order",
+    fields: [
+      "id",
+      "total",
+      "currency_code",
+      "payment_collections.payments.currency_code",
+      "payment_collections.payments.canceled_at",
+      "payment_collections.payments.captures.id",
+      "payment_collections.payments.captures.amount",
+      "payment_collections.payments.refunds.id",
+      "payment_collections.payments.refunds.amount",
+    ],
+    filters: { id: orderId },
+  })
+  const order = data[0] as CoverageOrder | undefined
+  if (!order || !/^[a-z]{3}$/i.test(order.currency_code ?? "")) {
+    throw new AbraFlexiApiError(0, "Abra Flexi: payment coverage order or currency missing", false)
+  }
+  const total = validAmount(order.total)
+  let captured = MathBN.convert(0)
+  const capturesSeen = new Set<string>()
+  const refundsSeen = new Set<string>()
+  for (const collection of order.payment_collections ?? []) {
+    for (const payment of collection.payments ?? []) {
+      if (payment.canceled_at) continue
+      if ((payment.captures?.length ?? 0) === 0) continue
+      if (payment.currency_code?.toUpperCase() !== order.currency_code.toUpperCase()) {
+        throw new AbraFlexiApiError(0, "Abra Flexi: payment coverage currency mismatch", false)
+      }
+      let paymentCaptured = MathBN.convert(0)
+      for (const capture of payment.captures ?? []) {
+        if (!capture.id) {
+          throw new AbraFlexiApiError(0, "Abra Flexi: capture identity missing", false)
+        }
+        if (capturesSeen.has(capture.id)) continue
+        capturesSeen.add(capture.id)
+        paymentCaptured = paymentCaptured.plus(validAmount(capture.amount))
+      }
+      let refunded = MathBN.convert(0)
+      for (const refund of payment.refunds ?? []) {
+        if (!refund.id) {
+          throw new AbraFlexiApiError(0, "Abra Flexi: refund identity missing", false)
+        }
+        if (refundsSeen.has(refund.id)) continue
+        refundsSeen.add(refund.id)
+        refunded = refunded.plus(validAmount(refund.amount))
+      }
+      captured = captured.plus(MathBN.max(0, paymentCaptured.minus(refunded)))
+    }
+  }
+  return total.isGreaterThan(0) && captured.isGreaterThanOrEqualTo(total)
+}
+
 export async function recordPaymentStepFn(
-  input: { externalCode: string },
+  input: { externalCode: string; orderId: string },
   { container }: StepCtx
-): Promise<StepResponse<AbraFlexiRecordPaymentResult>> {
+): Promise<StepResponse<AbraFlexiRecordPaymentResult | undefined>> {
   const abraFlexi = container.resolve<AbraFlexiModuleService>(ABRA_FLEXI_MODULE)
   try {
+    if (!(await isFullyCaptured(input.orderId, container))) {
+      return new StepResponse(undefined)
+    }
     const result = await abraFlexi
       .getClient()
       .recordPayment({ invoiceExternalCode: input.externalCode })
@@ -118,32 +205,35 @@ export const recordPaymentInAbraFlexiWorkflow = createWorkflow(
       return Array.isArray(ids) && ids.includes(input.paymentId)
     })
 
-    const recordedIds = when({ alreadyRecorded }, ({ alreadyRecorded }) => !alreadyRecorded).then(
+    const recordResult = when({ alreadyRecorded }, ({ alreadyRecorded }) => !alreadyRecorded).then(
       () => {
         const assertResult = assertInvoiceExistsStep(resolved)
         const externalCodeInput = transform(
           { resolved, assertResult },
           ({ resolved, assertResult }) => ({
             externalCode: abraFlexiExternalCodeForOrder(resolved.order.id),
+            orderId: resolved.order.id,
             // Included only to give this step a data dependency on assertResult, so
             // it runs after the invoice-exists guard passes, not in parallel with it --
             // same technique persistRecordedPaymentIdStep below uses for recordResult.
             _invoiceExistsGuard: assertResult.invoiceId,
           })
         )
-        const recordResult = recordPaymentStep(externalCodeInput)
-        return persistRecordedPaymentIdStep(
-          transform({ resolved, input, recordResult }, ({ resolved, input, recordResult }) => ({
-            order: resolved.order,
-            paymentId: input.paymentId,
-            // Included only to give this step a data dependency on recordResult, so
-            // it runs after the API call succeeds, not in parallel with it -- mirrors
-            // create-invoice-in-abra-flexi.ts's persistInvoiceIdStep taking the
-            // created invoice as input for the same reason.
-            recordedPaymentAbraFlexiId: recordResult.id,
-          }))
-        )
+        return recordPaymentStep(externalCodeInput)
       }
+    )
+
+    // Keep conditions at the workflow's top level: Medusa 2.17's composer does
+    // not support nesting a when().then() inside another condition.
+    const recordedIds = when({ recordResult }, ({ recordResult }) => !!recordResult).then(() =>
+      persistRecordedPaymentIdStep(
+        transform({ resolved, input, recordResult }, ({ resolved, input, recordResult }) => ({
+          order: resolved.order,
+          paymentId: input.paymentId,
+          // Partial captures must stay eligible for a later capture of this id.
+          recordedPaymentAbraFlexiId: recordResult!.id,
+        }))
+      )
     )
 
     const result = transform({ resolved, recordedIds }, ({ resolved, recordedIds }) => {

@@ -15,15 +15,8 @@ import { startMockAbraFlexiServer, type MockAbraFlexiServer } from "./mock-abra-
 // through Postgres, same reasoning as that file's header comment (not repeated
 // here -- same DB_HOST/pg-god/SSL requirements apply).
 //
-// The per-payment-id (not per-invoice) guard shape's split-tender behavior --
-// recording a *different* payment id on the same order is NOT a no-op -- is
-// covered at the unit level instead
-// (record-payment-in-abra-flexi.test.ts's persistRecordedPaymentIdStepFn
-// "appends to an existing list without dropping prior entries" case). Exercising
-// that here would need a second real Medusa payment session/capture on the same
-// payment collection, whose exact API shape for a split/zero-amount session
-// isn't verified in this codebase -- not worth guessing at in a DB-backed test
-// when the unit test already proves the guard's array-membership logic directly.
+// Partial captures must not persist the payment-id guard: a later capture of
+// the same payment must still be able to settle the invoice.
 const hasDb = !!process.env.DB_HOST
 const run = hasDb ? medusaIntegrationTestRunner : skippedSuite
 
@@ -54,6 +47,55 @@ run({
     describe("Abra Flexi record-payment idempotency guard (DB-backed)", () => {
       afterAll(async () => {
         await mock.close()
+      })
+
+      it("waits for later captures of the same payment before marking the invoice paid", async () => {
+        const container = getContainer()
+        const orderModuleService = container.resolve(Modules.ORDER)
+        const paymentModuleService = container.resolve(Modules.PAYMENT)
+        const remoteLink = container.resolve(ContainerRegistrationKeys.REMOTE_LINK)
+        const order = await orderModuleService.createOrders({
+          email: "partial@example.cz",
+          currency_code: "czk",
+          items: [{ title: "Tričko", quantity: 1, unit_price: 100 }],
+        })
+        const collection = await paymentModuleService.createPaymentCollections({
+          currency_code: "czk",
+          amount: 100,
+        })
+        await remoteLink.create({
+          [Modules.ORDER]: { order_id: order.id },
+          [Modules.PAYMENT]: { payment_collection_id: collection.id },
+        })
+        const session = await paymentModuleService.createPaymentSession(collection.id, {
+          provider_id: "pp_system_default",
+          currency_code: "czk",
+          amount: 100,
+          data: {},
+        })
+        const payment = await paymentModuleService.authorizePaymentSession(session.id, {})
+        await paymentModuleService.capturePayment({ payment_id: payment.id, amount: 40 })
+        await createInvoiceInAbraFlexiWorkflow(container).run({ input: { paymentId: payment.id } })
+
+        const before = mock.paymentRecordCallCount()
+        const partial = await recordPaymentInAbraFlexiWorkflow(container).run({
+          input: { paymentId: payment.id },
+        })
+        expect(mock.paymentRecordCallCount()).toBe(before)
+        expect(partial.result.recordedPaymentIds).toEqual([])
+        const partialOrder = await orderModuleService.retrieveOrder(order.id)
+        expect(partialOrder.metadata?.abra_flexi_recorded_payment_ids).toBeUndefined()
+
+        await paymentModuleService.capturePayment({ payment_id: payment.id, amount: 60 })
+        const complete = await recordPaymentInAbraFlexiWorkflow(container).run({
+          input: { paymentId: payment.id },
+        })
+        const replay = await recordPaymentInAbraFlexiWorkflow(container).run({
+          input: { paymentId: payment.id },
+        })
+        expect(mock.paymentRecordCallCount()).toBe(before + 1)
+        expect(complete.result.recordedPaymentIds).toEqual([payment.id])
+        expect(replay.result).toEqual(complete.result)
       })
 
       it("does not record a second payment when the workflow runs twice for the same payment id", async () => {
@@ -92,6 +134,7 @@ run({
           input: { paymentId: payment.id },
         })
 
+        const before = mock.paymentRecordCallCount()
         const first = await recordPaymentInAbraFlexiWorkflow(container).run({
           input: { paymentId: payment.id },
         })
@@ -99,7 +142,7 @@ run({
           input: { paymentId: payment.id },
         })
 
-        expect(mock.paymentRecordCallCount()).toBe(1)
+        expect(mock.paymentRecordCallCount()).toBe(before + 1)
         expect(second.result).toEqual(first.result)
       })
     })
