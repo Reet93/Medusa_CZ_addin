@@ -167,3 +167,46 @@ describe("emitInvoiceCreatedStepFn", () => {
     })
   })
 })
+
+describe("original invoice payload evidence", () => {
+  it.each([false, true])(
+    "records original payload VAT=%s without consulting today's settings",
+    async (vatPayer) => {
+      const updateOrders = vi.fn().mockResolvedValue({})
+      const container = mockContainer({
+        order: { updateOrders },
+        abraFlexi: { getOptions: () => ({ vatPayer: !vatPayer }) },
+      })
+      const payload = {
+        externalCode: "ext:medusa-order:ord_1",
+        currency: "CZK",
+        issueDate: "2026-11-01",
+        dueDate: "2026-11-15",
+        customer: { name: "Jan" },
+        vatPayer,
+        lines: [
+          { name: "A", quantity: 3, unitPrice: 0.1, ...(vatPayer ? { vatRate: 0.21 } : {}) },
+          { name: "B", quantity: 1, unitPrice: 99.7 },
+        ],
+      }
+      await persistInvoiceIdStepFn(
+        {
+          order: { ...order, metadata: { existing: "keep" } },
+          invoice: { id: "1", code: "FV1" },
+          payload,
+        } as never,
+        { container } as never
+      )
+      expect(updateOrders.mock.calls[0]![1].metadata).toMatchObject({
+        existing: "keep",
+        abra_flexi_invoice_profile: {
+          version: 1,
+          external_code: payload.externalCode,
+          currency: "CZK",
+          vat_payer: vatPayer,
+          payload_gross_total: vatPayer ? "100.063" : "100",
+        },
+      })
+    }
+  )
+})

@@ -6,7 +6,7 @@ import {
   when,
   transform,
 } from "@medusajs/framework/workflows-sdk"
-import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
+import { BigNumber, ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 // MedusaContainer specifically from the framework's MAIN entry (not the "/types"
 // subpath) — only the main entry's export chain (index -> container -> types/container)
 // pulls in the `declare module "@medusajs/types" { interface ModuleImplementations {...} }`
@@ -108,7 +108,7 @@ const createInvoiceStep = createStep(
 )
 
 export async function persistInvoiceIdStepFn(
-  input: { order: OrderDTO; invoice: AbraFlexiInvoiceResult },
+  input: { order: OrderDTO; invoice: AbraFlexiInvoiceResult; payload?: AbraFlexiInvoicePayload },
   { container }: StepCtx
 ): Promise<StepResponse<AbraFlexiInvoiceResult>> {
   const orderModuleService = container.resolve(Modules.ORDER)
@@ -117,6 +117,33 @@ export async function persistInvoiceIdStepFn(
       ...(input.order.metadata ?? {}),
       abra_flexi_invoice_id: input.invoice.id,
       abra_flexi_invoice_code: input.invoice.code,
+      // Evidence of the exact payload used at invoice creation, not a later tax
+      // configuration. ABRA may round; this is deliberately not a provider total.
+      ...(input.payload
+        ? {
+            abra_flexi_invoice_profile: {
+              version: 1,
+              external_code: input.payload.externalCode,
+              currency: input.payload.currency,
+              vat_payer: input.payload.vatPayer,
+              payload_gross_total: input.payload.lines
+                .reduce(
+                  (total, line) =>
+                    total.plus(
+                      new BigNumber(line.unitPrice)
+                        .bigNumber!.multipliedBy(line.quantity)
+                        .multipliedBy(
+                          new BigNumber(
+                            input.payload!.vatPayer ? (line.vatRate ?? 0) : 0
+                          ).bigNumber!.plus(1)
+                        )
+                    ),
+                  new BigNumber(0).bigNumber!
+                )
+                .toFixed(),
+            },
+          }
+        : {}),
     },
   })
   return new StepResponse(input.invoice)
@@ -164,7 +191,7 @@ export const createInvoiceInAbraFlexiWorkflow = createWorkflow(
     ).then(() => {
       const payload = mapOrderToPayloadStep(resolved)
       const created = createInvoiceStep(payload)
-      const persisted = persistInvoiceIdStep({ order: resolved.order, invoice: created })
+      const persisted = persistInvoiceIdStep({ order: resolved.order, invoice: created, payload })
       const orderId = transform({ resolved }, ({ resolved }) => resolved.order.id)
       emitInvoiceCreatedStep({ orderId, invoice: persisted })
       return persisted
