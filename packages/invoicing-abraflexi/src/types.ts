@@ -1,3 +1,11 @@
+export interface AbraFlexiCreditNotePolicyContext {
+  readonly orderId: string
+  readonly refundId: string
+  readonly currencyCode: string
+  readonly amount: unknown
+  readonly triggeredBy: "order_canceled" | "payment_refunded"
+}
+
 export interface AbraFlexiOptions {
   /** e.g. "https://yourcompany.flexibee.eu" (cloud) or a self-hosted server URL, no trailing slash required */
   baseUrl: string
@@ -12,6 +20,12 @@ export interface AbraFlexiOptions {
    * (often in English); unknown names are used as they are.
    */
   shippingLineNames?: Record<string, string>
+  /**
+   * Optional host accounting gate. False leaves the refund uncredited and
+   * unrecorded for later/manual handling. Errors stop the batch before API I/O.
+   * Omitting this hook preserves the normal credit-note behavior.
+   */
+  creditNotePolicy?: (context: AbraFlexiCreditNotePolicyContext) => boolean | Promise<boolean>
 }
 
 export interface AbraFlexiCustomer {

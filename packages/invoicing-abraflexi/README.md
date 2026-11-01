@@ -174,3 +174,16 @@ totals in the isolated ABRA E2E checks before live accounting use.
 3. Confirm `order.metadata.abra_flexi_invoice_id` is set on the Medusa order.
 4. Trigger a second `payment.captured` for the same order (e.g. a partial second
    capture) and confirm no duplicate invoice is created.
+
+## Host accounting policy
+
+The optional `creditNotePolicy` callback receives `orderId`, `refundId`,
+`currencyCode`, `amount` and `triggeredBy`. Return `true` to use the normal
+credit-note mapping, or `false` to leave that refund uncredited and unrecorded
+for later or manual handling. The host can resolve its own canonical payment
+and review evidence using the refund ID.
+
+Every decision in a batch is evaluated before initializing the API client.
+An error or a non-boolean result stops the batch before accounting writes.
+Omitting the callback preserves existing behavior. The hook controls credit
+notes; payment approval and completion evidence remain the host's responsibility.

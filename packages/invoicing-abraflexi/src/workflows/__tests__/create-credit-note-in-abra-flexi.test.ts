@@ -144,6 +144,108 @@ describe("listNewRefundsStepFn", () => {
 })
 
 describe("createCreditNotesForNewRefundsStepFn", () => {
+  it("leaves a host-managed refund unrecorded without initializing an API client", async () => {
+    const getClient = vi.fn(() => {
+      throw new Error("Unexpected API client")
+    })
+    const creditNotePolicy = vi.fn().mockResolvedValue(false)
+    const container = mockContainer({
+      abraFlexi: { getClient, getOptions: () => ({ creditNotePolicy }) },
+    })
+    const response = await createCreditNotesForNewRefundsStepFn(
+      {
+        order,
+        newRefunds: [refund()],
+        triggeredBy: "payment_refunded",
+        invoiceExternalCode: "order-ord_1",
+      },
+      { container } as never
+    )
+    expect(response.output).toEqual([])
+    expect(getClient).not.toHaveBeenCalled()
+    expect(creditNotePolicy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: "ord_1",
+        refundId: "ref_1",
+        currencyCode: "czk",
+        amount: 100,
+        triggeredBy: "payment_refunded",
+      })
+    )
+  })
+
+  it("creates and reports only refunds explicitly included by the optional policy", async () => {
+    const createCreditNote = vi.fn().mockResolvedValue({ id: "cn_1", code: "CN-1" })
+    const creditNotePolicy = vi.fn(
+      async ({ refundId }: { refundId: string }) => refundId === "ref_legacy"
+    )
+    const container = mockContainer({
+      abraFlexi: {
+        getClient: () => ({ createCreditNote }),
+        getOptions: () => ({ vatPayer: false, creditNotePolicy }),
+      },
+    })
+    const response = await createCreditNotesForNewRefundsStepFn(
+      {
+        order,
+        newRefunds: [
+          refund({ id: "ref_legacy", amount: 40 }),
+          refund({ id: "ref_host", amount: 60 }),
+        ],
+        triggeredBy: "payment_refunded",
+        invoiceExternalCode: "order-ord_1",
+      },
+      { container } as never
+    )
+    expect(createCreditNote).toHaveBeenCalledTimes(1)
+    expect(createCreditNote.mock.calls[0]![0].lines[0].unitPrice).toBe(40)
+    expect(response.output.map((note) => note.refundId)).toEqual(["ref_legacy"])
+  })
+
+  it("evaluates the whole policy batch before any accounting write", async () => {
+    const createCreditNote = vi.fn().mockResolvedValue({ id: "cn_1", code: "CN-1" })
+    const creditNotePolicy = vi
+      .fn()
+      .mockResolvedValueOnce(true)
+      .mockRejectedValueOnce(new Error("Policy unavailable"))
+    const getClient = vi.fn(() => ({ createCreditNote }))
+    const container = mockContainer({
+      abraFlexi: { getClient, getOptions: () => ({ creditNotePolicy }) },
+    })
+    await expect(
+      createCreditNotesForNewRefundsStepFn(
+        {
+          order,
+          newRefunds: [refund({ id: "ref_1" }), refund({ id: "ref_2" })],
+          triggeredBy: "payment_refunded",
+          invoiceExternalCode: "order-ord_1",
+        },
+        { container } as never
+      )
+    ).rejects.toThrow("Policy unavailable")
+    expect(getClient).not.toHaveBeenCalled()
+    expect(createCreditNote).not.toHaveBeenCalled()
+  })
+
+  it("rejects an ambiguous policy result before any accounting write", async () => {
+    const getClient = vi.fn()
+    const container = mockContainer({
+      abraFlexi: { getClient, getOptions: () => ({ creditNotePolicy: async () => undefined }) },
+    })
+    await expect(
+      createCreditNotesForNewRefundsStepFn(
+        {
+          order,
+          newRefunds: [refund()],
+          triggeredBy: "payment_refunded",
+          invoiceExternalCode: "order-ord_1",
+        },
+        { container } as never
+      )
+    ).rejects.toThrow(/policy/i)
+    expect(getClient).not.toHaveBeenCalled()
+  })
+
   it("does nothing and calls no API when there are no new refunds", async () => {
     const createCreditNote = vi.fn()
     const container = mockContainer({

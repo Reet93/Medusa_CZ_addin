@@ -142,7 +142,25 @@ export async function createCreditNotesForNewRefundsStepFn(
     return new StepResponse([])
   }
   const abraFlexi = container.resolve<AbraFlexiModuleService>(ABRA_FLEXI_MODULE)
-  const { vatPayer, shippingLineNames } = abraFlexi.getOptions()
+  const { vatPayer, shippingLineNames, creditNotePolicy } = abraFlexi.getOptions()
+  const selectedRefunds: RefundDTO[] = []
+  // Resolve all policy decisions before initializing a client or writing any
+  // credit note. Skipped refunds never enter the recorded-refund-id step.
+  for (const refund of input.newRefunds) {
+    const allowed = creditNotePolicy
+      ? await creditNotePolicy({
+          orderId: input.order.id,
+          refundId: refund.id,
+          currencyCode: input.order.currency_code,
+          amount: refund.amount,
+          triggeredBy: input.triggeredBy,
+        })
+      : true
+    if (typeof allowed !== "boolean")
+      throw new Error("Abra Flexi credit-note policy must return boolean")
+    if (allowed) selectedRefunds.push(refund)
+  }
+  if (!selectedRefunds.length) return new StepResponse([])
   const config = { vatPayer: !!vatPayer, shippingLineNames }
   const client = abraFlexi.getClient()
   const created: CreatedCreditNote[] = []
@@ -159,7 +177,7 @@ export async function createCreditNotesForNewRefundsStepFn(
   let mirrored = !!input.hadEarlierCreditNotes
 
   try {
-    for (const refund of input.newRefunds) {
+    for (const refund of selectedRefunds) {
       const mirror =
         input.triggeredBy === "order_canceled" &&
         !mirrored &&
