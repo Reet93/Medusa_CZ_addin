@@ -30,6 +30,57 @@ const payload: AbraFlexiInvoicePayload = {
   vatPayer: false,
 }
 
+describe("bounded ABRA requests", () => {
+  it.each(["headers", "json", "pdf", "invoice", "payment"])(
+    "aborts a stalled %s request including body consumption",
+    async (stage) => {
+      vi.useFakeTimers()
+      let signal: AbortSignal | undefined
+      const fetchFn = vi.fn(async (_url: any, init: any) => {
+        signal = init.signal
+        if (stage === "headers") return new Promise<Response>(() => {})
+        return {
+          ok: true,
+          status: 200,
+          json: () => new Promise(() => {}),
+          arrayBuffer: () => new Promise(() => {}),
+        } as unknown as Response
+      })
+      const client = new AbraFlexiClient({ ...opts, requestTimeoutMs: 100, fetchFn } as any)
+      try {
+        const request =
+          stage === "pdf"
+            ? client.getInvoicePdf("ext:medusa-credit:o:r")
+            : stage === "invoice"
+              ? client.createInvoice(payload)
+              : stage === "payment"
+                ? client.recordPayment({ invoiceExternalCode: payload.externalCode })
+                : client.createCreditNote({
+                    ...payload,
+                    externalCode: "ext:medusa-credit:o:r",
+                    originalInvoiceExternalCode: payload.externalCode,
+                  })
+        let outcome: unknown = "pending"
+        const settled = request.then(
+          () => {
+            outcome = "resolved"
+          },
+          (error) => {
+            outcome = error
+          }
+        )
+        await vi.advanceTimersByTimeAsync(101)
+        expect(outcome).toMatchObject({ name: "AbraFlexiApiError", retryable: true })
+        await settled
+        expect(signal?.aborted).toBe(true)
+        expect(fetchFn).toHaveBeenCalledTimes(1)
+      } finally {
+        vi.useRealTimers()
+      }
+    }
+  )
+})
+
 let mockFetchFn: ReturnType<typeof vi.fn> | null = null
 
 function mockFetchOnce(status: number, body: unknown) {
@@ -404,6 +455,7 @@ describe("AbraFlexiClient.getInvoicePdf", () => {
           Authorization: "Basic " + Buffer.from("winstrom:winstrom").toString("base64"),
           Accept: "application/pdf",
         },
+        signal: expect.any(AbortSignal),
       }
     )
     expect(result.toString()).toBe("%PDF-1.4 test")

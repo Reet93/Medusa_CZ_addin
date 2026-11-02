@@ -143,6 +143,8 @@ export async function createCreditNotesForNewRefundsStepFn(
   }
   const abraFlexi = container.resolve<AbraFlexiModuleService>(ABRA_FLEXI_MODULE)
   const { vatPayer, shippingLineNames, creditNotePolicy } = abraFlexi.getOptions()
+  if (Boolean(creditNotePolicy?.claimDispatch) !== Boolean(creditNotePolicy?.settleDispatch))
+    throw new Error("Abra Flexi dispatch claims require both claim and settlement hooks")
   const selectedRefunds: RefundDTO[] = []
   // Resolve all policy decisions before initializing a client or writing any
   // credit note. Skipped refunds never enter the recorded-refund-id step.
@@ -182,7 +184,6 @@ export async function createCreditNotesForNewRefundsStepFn(
         input.triggeredBy === "order_canceled" &&
         !mirrored &&
         MathBN.eq(refund.amount, invoiceTotal)
-      mirrored ||= mirror
       const payload = mirror
         ? mapOrderToFullCreditNote(input.order, config, refund.id)
         : mapRefundToLumpSumCreditNote(input.order, config, {
@@ -190,10 +191,40 @@ export async function createCreditNotesForNewRefundsStepFn(
             amount: Number(refund.amount),
             note: refund.note,
           })
-      const result = await client.createCreditNote({
-        ...payload,
-        originalInvoiceExternalCode: input.invoiceExternalCode,
-      })
+      const context = {
+        orderId: input.order.id,
+        refundId: refund.id,
+        currencyCode: input.order.currency_code,
+        amount: refund.amount,
+        triggeredBy: input.triggeredBy,
+        externalCode: payload.externalCode,
+      }
+      // Earlier documents may have waited on network I/O. Never reuse their
+      // batch-time permission for the next document.
+      const allowed = creditNotePolicy ? await creditNotePolicy(context) : true
+      if (typeof allowed !== "boolean")
+        throw new Error("Abra Flexi credit-note policy must return boolean")
+      if (!allowed) continue
+      const claimId = creditNotePolicy?.claimDispatch
+        ? await creditNotePolicy.claimDispatch(context)
+        : undefined
+      if (claimId === false) continue
+      if (creditNotePolicy?.claimDispatch && (typeof claimId !== "string" || !claimId))
+        throw new Error("Abra Flexi dispatch claim must return an identity or false")
+      let result
+      try {
+        result = await client.createCreditNote({
+          ...payload,
+          originalInvoiceExternalCode: input.invoiceExternalCode,
+        })
+      } catch (error) {
+        if (claimId)
+          await creditNotePolicy!.settleDispatch!({ ...context, claimId, outcome: "uncertain" })
+        throw error
+      }
+      if (claimId)
+        await creditNotePolicy!.settleDispatch!({ ...context, claimId, outcome: "success" })
+      mirrored ||= mirror
       created.push({ refundId: refund.id, creditNoteId: result.id, creditNoteCode: result.code })
     }
   } catch (e) {

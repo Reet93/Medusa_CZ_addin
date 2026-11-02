@@ -33,6 +33,95 @@ function refund(overrides: Partial<RefundDTO> = {}): RefundDTO {
   } as unknown as RefundDTO
 }
 
+describe("dispatch-time accounting authority", () => {
+  it.each(["hold", "complete"])("honors B's committed %s while A is in flight", async () => {
+    let blockB = false
+    let release!: () => void
+    let started!: () => void
+    const entered = new Promise<void>((r) => {
+      started = r
+    })
+    const waiting = new Promise<void>((r) => {
+      release = r
+    })
+    const written: string[] = []
+    const creditNotePolicy = async (ctx: any) => ctx.refundId !== "B" || !blockB
+    const container = mockContainer({
+      abraFlexi: {
+        getOptions: () => ({ creditNotePolicy }),
+        getClient: () => ({
+          createCreditNote: async (p: any) => {
+            written.push(p.externalCode)
+            started()
+            await waiting
+            return { id: "1", code: p.externalCode }
+          },
+        }),
+      },
+    })
+    const run = createCreditNotesForNewRefundsStepFn(
+      {
+        order,
+        newRefunds: [refund({ id: "A" }), refund({ id: "B" })],
+        triggeredBy: "payment_refunded",
+        invoiceExternalCode: "order-ord_1",
+      },
+      { container } as never
+    )
+    await entered
+    blockB = true
+    release()
+    const result = await run
+    expect(written).toEqual(["ext:medusa-credit:ord_1:A"])
+    expect(result.output.map((c) => c.refundId)).toEqual(["A"])
+  })
+
+  it("requires a dispatch claim and settles an uncertain write using the same external identity", async () => {
+    const settled: any[] = []
+    const written: string[] = []
+    const creditNotePolicy = Object.assign(async () => true, {
+      claimDispatch: async (ctx: any) => (ctx.refundId === "B" ? false : "claim-A"),
+      settleDispatch: async (ctx: any) => {
+        settled.push(ctx)
+      },
+    })
+    const container = mockContainer({
+      abraFlexi: {
+        getOptions: () => ({ creditNotePolicy }),
+        getClient: () => ({
+          createCreditNote: async (p: any) => {
+            written.push(p.externalCode)
+            throw new AbraFlexiApiError(0, "timeout", true)
+          },
+        }),
+      },
+    })
+    const input = {
+      order,
+      newRefunds: [refund({ id: "B" })],
+      triggeredBy: "payment_refunded" as const,
+      invoiceExternalCode: "order-ord_1",
+    }
+    expect(
+      (await createCreditNotesForNewRefundsStepFn(input, { container } as never)).output
+    ).toEqual([])
+    await expect(
+      createCreditNotesForNewRefundsStepFn({ ...input, newRefunds: [refund({ id: "A" })] }, {
+        container,
+      } as never)
+    ).rejects.toMatchObject({ retryable: true })
+    expect(written).toEqual(["ext:medusa-credit:ord_1:A"])
+    expect(settled).toEqual([
+      expect.objectContaining({
+        refundId: "A",
+        claimId: "claim-A",
+        outcome: "uncertain",
+        externalCode: "ext:medusa-credit:ord_1:A",
+      }),
+    ])
+  })
+})
+
 describe("resolveOrderByIdStepFn", () => {
   // Medusa 2.17's order module only fills items[].quantity (it lives on the order item
   // detail) when the whole item is selected -- "items.quantity" alone comes back undefined,

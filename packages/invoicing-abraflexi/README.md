@@ -183,7 +183,37 @@ credit-note mapping, or `false` to leave that refund uncredited and unrecorded
 for later or manual handling. The host can resolve its own canonical payment
 and review evidence using the refund ID.
 
-Every decision in a batch is evaluated before initializing the API client.
-An error or a non-boolean result stops the batch before accounting writes.
-Omitting the callback preserves existing behavior. The hook controls credit
-notes; payment approval and completion evidence remain the host's responsibility.
+Every decision in a batch is evaluated before initializing the API client, then
+revalidated immediately before dispatching each selected refund's document.
+An error or a non-boolean result in preflight stops the batch before accounting
+writes. A later revalidation error stops subsequent dispatches; earlier documents
+may already exist. Omitting the callback preserves existing behavior.
+
+For coordination with staff resolution, the callback can also carry optional
+`claimDispatch(context)` and `settleDispatch(context)` methods. Supply both or
+neither. Claim receives the policy fields plus `externalCode`, and must atomically
+recheck policy and persist a claim under the same lock used by staff resolution.
+Return a nonempty claim ID, or `false` to skip this refund. Settlement additionally
+receives `claimId` and `outcome` (`success` or `uncertain`) after document I/O.
+The callable properties preserve existing module configuration and `file:` links.
+Without these methods, a policy recheck alone cannot close the check/write race.
+
+A host must refuse or flag staff resolution while a claim is in flight. Never
+expire an uncertain write into permission for an unrelated document. Retain
+`ext:medusa-credit:<order id>:<refund id>` for recovery. A worker crash or failed
+settlement can leave a durable in-flight claim; stop/verify the owning worker and
+reconcile the canonical document before explicitly recovering that claim. The
+plugin does not release claims on a timer or independently verify staff evidence.
+
+`requestTimeoutMs` bounds each HTTP request, including response-body consumption
+(default 30,000 ms, allowed range 1–300,000 ms). The client supplies an AbortSignal;
+its methods also accept an optional caller AbortSignal. A deadline or cancellation
+is retryable and can mean an uncertain write. The credit-note create and link PUTs
+each have their own deadline. Retry using the same external document ID.
+
+The host schedules governed native, mail and accounting tasks with separate
+capacity and persisted attempt/backoff metadata; this plugin does not schedule
+host jobs. Payment approval and completion evidence remain the host's responsibility.
+The demo host deliberately retains case-scoped withholding review; an order-wide
+accounting hold is not imposed. Cross-case manual accounting allocation remains
+a rollout limitation requiring review.

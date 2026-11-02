@@ -13,6 +13,8 @@ export interface AbraFlexiOptions {
   company: string
   username: string
   password: string
+  /** Deadline per HTTP request, including consuming its body. Default 30 seconds. */
+  requestTimeoutMs?: number
   /** default false — the business is currently "neplátce" (not VAT-registered) */
   vatPayer?: boolean
   /**
@@ -25,7 +27,20 @@ export interface AbraFlexiOptions {
    * unrecorded for later/manual handling. Errors stop the batch before API I/O.
    * Omitting this hook preserves the normal credit-note behavior.
    */
-  creditNotePolicy?: (context: AbraFlexiCreditNotePolicyContext) => boolean | Promise<boolean>
+  creditNotePolicy?: ((context: AbraFlexiCreditNotePolicyContext) => boolean | Promise<boolean>) & {
+    /** Atomically revalidate host policy and durably claim this document. False skips it. */
+    claimDispatch?: (
+      context: AbraFlexiCreditNotePolicyContext & { externalCode: string }
+    ) => Promise<string | false>
+    /** Called after bounded document I/O. Uncertain includes errors after a possible write. */
+    settleDispatch?: (
+      context: AbraFlexiCreditNotePolicyContext & {
+        externalCode: string
+        claimId: string
+        outcome: "success" | "uncertain"
+      }
+    ) => Promise<void>
+  }
 }
 
 export interface AbraFlexiCustomer {
