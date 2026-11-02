@@ -223,6 +223,9 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
       : null
     const weight = this.itemsWeightKg_(items, (order?.items as Array<Record<string, any>>) ?? [])
     const cod = data.cod ? Number(data.cod_amount ?? order?.item_total ?? 0) : undefined
+    // Medusa's order-fulfillment workflow doesn't query order.email, only customer.* (guest
+    // checkouts get a customer record too), and Packeta rejects a packet without an email.
+    const email = order?.email ?? order?.customer?.email
 
     // A MedusaError keeps Packeta's reason visible in the admin (a plain Error is "unknown error").
     const result = await this.client_
@@ -230,7 +233,7 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
         number: String(order?.display_id ?? order?.id ?? ""),
         name: String(addr.first_name ?? ""),
         surname: String(addr.last_name ?? ""),
-        email: order?.email ? String(order.email) : undefined,
+        email: email ? String(email) : undefined,
         phone: addr.phone ? String(addr.phone) : undefined,
         ...(door ?? {
           addressId: isExternal

@@ -240,6 +240,22 @@ describe("createFulfillment", () => {
     expect(res.labels).toEqual([])
   })
 
+  // Medusa 2.17's createOrderFulfillmentWorkflow queries the order without `email`, only
+  // `customer.*` (guest checkouts get a customer record too), so the email must come from there.
+  it("takes the email from order.customer when the order has none", async () => {
+    createPacket.mockResolvedValue({ id: "1", barcode: "Z1" })
+    const { email: _email, ...withoutEmail } = order
+    await makeProvider().createFulfillment(
+      { pickup_point_id: "79" },
+      items as never,
+      { ...withoutEmail, customer: { email: "guest@example.com" } } as never,
+      {} as never
+    )
+    expect(createPacket).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "guest@example.com" })
+    )
+  })
+
   it("external point → addressId = carrier_id and carrierPickupPoint set", async () => {
     createPacket.mockResolvedValue({ id: "1", barcode: "Z1" })
     const data = {
