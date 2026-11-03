@@ -101,6 +101,32 @@ describe("canCalculate / calculatePrice", () => {
     expect(res).toMatchObject({ calculated_amount: 79 })
   })
 
+  // Medusa 2.17's calculateShippingOptionsPricesWorkflow queries the cart with only items and
+  // shipping_address (no item_total/subtotal), so the free-over threshold must come from items.
+  it("applies freeOver from the items when the context has no item_total", async () => {
+    const res = await makeProvider().calculatePrice(
+      {} as never,
+      {} as never,
+      {
+        shipping_address: { country_code: "cz" },
+        items: [{ variant: { weight: 1 }, quantity: 2, unit_price: 800 }],
+      } as never
+    )
+    expect(res).toMatchObject({ calculated_amount: 0 })
+  })
+
+  it("charges below freeOver when computed from the items", async () => {
+    const res = await makeProvider().calculatePrice(
+      {} as never,
+      {} as never,
+      {
+        shipping_address: { country_code: "cz" },
+        items: [{ variant: { weight: 1 }, quantity: 1, unit_price: 800 }],
+      } as never
+    )
+    expect(res).toMatchObject({ calculated_amount: 79 })
+  })
+
   it("throws when country_code is missing and defaultCurrency is a non-CZK currency", async () => {
     await expect(
       makeProvider({ ...options, defaultCurrency: "EUR" }).calculatePrice(

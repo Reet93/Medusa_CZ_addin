@@ -140,7 +140,14 @@ class PacketaProviderService extends AbstractFulfillmentProviderService {
     }
     const items = (context.items as Array<Record<string, any>> | undefined) ?? []
     const weight = this.itemsWeightKg_(items)
-    const subtotal = Number((context.item_total as number) ?? (context.subtotal as number) ?? 0)
+    // Medusa 2.17's calculateShippingOptionsPricesWorkflow passes the cart without item_total or
+    // subtotal (only items and shipping_address), so fall back to the items themselves. That sum
+    // is before discounts.
+    const subtotal = Number(
+      (context.item_total as number) ??
+        (context.subtotal as number) ??
+        items.reduce((sum, i) => sum + Number(i.unit_price ?? 0) * Number(i.quantity ?? 0), 0)
+    )
     const amount = calculateShippingPrice(
       this.priceTable_(this.deliveryOf_(optionData)),
       country,
