@@ -73,7 +73,8 @@ run({
           amount: 100,
           data: {},
         })
-        const payment = await paymentModuleService.authorizePaymentSession(session.id, {})
+        // Medusa 2.22 returns null while authorization is pending; the system provider authorizes at once.
+        const payment = (await paymentModuleService.authorizePaymentSession(session.id, {}))!
         await paymentModuleService.capturePayment({ payment_id: payment.id, amount: 40 })
         await createInvoiceInAbraFlexiWorkflow(container).run({ input: { paymentId: payment.id } })
 
@@ -127,7 +128,8 @@ run({
           amount: 100,
           data: {},
         })
-        const payment = await paymentModuleService.authorizePaymentSession(session.id, {})
+        // Medusa 2.22 returns null while authorization is pending; the system provider authorizes at once.
+        const payment = (await paymentModuleService.authorizePaymentSession(session.id, {}))!
         await paymentModuleService.capturePayment({ payment_id: payment.id })
 
         await createInvoiceInAbraFlexiWorkflow(container).run({
