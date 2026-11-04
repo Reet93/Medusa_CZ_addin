@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import {
   AbstractPaymentProvider,
   BigNumber,
@@ -71,6 +72,12 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
     data?: Record<string, unknown>
     context?: Record<string, unknown>
   }): Promise<{ id: string; data: Record<string, unknown> }> {
+    // A storefront may record the chosen method before the customer pays (e.g. a checkout payment
+    // step). Creating a Comgate transaction there would leave an unused one behind, and Comgate
+    // emails the customer for each; the pay click initiates the real session instead.
+    if (input.data?.deferred === true) {
+      return { id: `deferred_${randomUUID()}`, data: { deferred: true } }
+    }
     const refId =
       (input.data?.session_id as string) ??
       (input.context?.idempotency_key as string) ??
@@ -110,6 +117,9 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
   async authorizePayment(input: {
     data?: Record<string, unknown>
   }): Promise<{ status: PaymentSessionStatus; data?: Record<string, unknown> }> {
+    if (input.data?.deferred === true) {
+      return { status: PaymentSessionStatus.PENDING, data: input.data }
+    }
     const transId = input.data?.transId as string
     const res = await this.client_.status(transId)
     return { status: this.mapStatus(res.status), data: { ...input.data, status: res.status } }
@@ -189,9 +199,14 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
     headers: Record<string, unknown>
   }): Promise<{ action: PaymentActions; data?: { session_id: string; amount: number } }> {
     const transId = payload.data.transId as string
-    const sessionId = (payload.data.refId as string) ?? transId
-    // Unsigned webhook → re-query the real status (verification doc A6).
+    // Unsigned webhook → re-query the real status (verification doc A6). The session id comes from
+    // that authenticated response too; a payload refId that disagrees with it is not acted on.
     const res = await this.client_.status(transId)
+    const sessionId = res.refId || transId
+    const claimedRefId = payload.data.refId
+    if (claimedRefId !== undefined && claimedRefId !== sessionId) {
+      return { action: PaymentActions.NOT_SUPPORTED }
+    }
     const amount = res.price ?? 0
     let action: PaymentActions
     switch (res.status) {

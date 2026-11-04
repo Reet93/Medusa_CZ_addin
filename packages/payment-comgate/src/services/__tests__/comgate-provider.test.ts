@@ -96,6 +96,34 @@ describe("initiatePayment", () => {
 })
 
 // Without an email Comgate asks the customer to type it again on its page (live test, 2026-10-26).
+// 2026-11-04 E2E: the checkout's payment step initiated a session only to show the chosen method;
+// that created a real Comgate transaction (and a "payment request" email to the customer), which
+// the pay button then replaced. A deferred session records the choice without touching Comgate.
+describe("deferred initiatePayment", () => {
+  it("creates no Comgate transaction", async () => {
+    const res = await makeProvider().initiatePayment({
+      amount: 10,
+      currency_code: "czk",
+      data: { session_id: "ps_1", deferred: true, email: "a@b.cz" },
+    } as never)
+    expect(create).not.toHaveBeenCalled()
+    expect(res.id).toMatch(/^deferred_/)
+    expect(res.data).toEqual({ deferred: true })
+  })
+
+  it("is never authorized (the pay button replaces it with a real transaction)", async () => {
+    const res = await makeProvider().authorizePayment({ data: { deferred: true } } as never)
+    expect(status).not.toHaveBeenCalled()
+    expect(res.status).toBe("pending")
+  })
+
+  it("deletes without calling Comgate", async () => {
+    await makeProvider().deletePayment({ data: { deferred: true } } as never)
+    expect(status).not.toHaveBeenCalled()
+    expect(cancel).not.toHaveBeenCalled()
+  })
+})
+
 describe("initiatePayment email", () => {
   beforeEach(() => {
     create.mockResolvedValue({ code: 0, message: "OK", transId: "T1", redirect: "https://pay/T1" })
@@ -251,7 +279,7 @@ describe("updatePayment", () => {
 
 describe("getWebhookActionAndData", () => {
   it("re-queries status (never trusts the payload) and maps PAID → captured", async () => {
-    status.mockResolvedValue({ code: 0, status: "PAID", price: 1000 })
+    status.mockResolvedValue({ code: 0, status: "PAID", price: 1000, refId: "ps_1" })
     const res = await makeProvider().getWebhookActionAndData({
       data: { transId: "T1", refId: "ps_1", status: "PAID" },
       rawData: "",
@@ -260,8 +288,30 @@ describe("getWebhookActionAndData", () => {
     expect(res.action).toBe(PaymentActions.SUCCESSFUL) // "captured"
     expect(res.data).toMatchObject({ session_id: "ps_1" })
   })
+  // Codex security sweep 2026-11-04: refId in the webhook body is unsigned. The session must come
+  // from Comgate's authenticated status response, never from the payload.
+  it("takes the session from the authenticated status, not the payload refId", async () => {
+    status.mockResolvedValue({ code: 0, status: "PAID", price: 1000, refId: "ps_real" })
+    const res = await makeProvider().getWebhookActionAndData({
+      data: { transId: "T1", refId: "ps_other" },
+      rawData: "",
+      headers: {},
+    } as never)
+    expect(res.action).toBe(PaymentActions.NOT_SUPPORTED)
+  })
+
+  it("uses the authenticated refId when the payload omits it", async () => {
+    status.mockResolvedValue({ code: 0, status: "PAID", price: 1000, refId: "ps_real" })
+    const res = await makeProvider().getWebhookActionAndData({
+      data: { transId: "T1" },
+      rawData: "",
+      headers: {},
+    } as never)
+    expect(res.data).toMatchObject({ session_id: "ps_real" })
+  })
+
   it("maps CANCELLED → canceled", async () => {
-    status.mockResolvedValue({ code: 0, status: "CANCELLED", price: 1000 })
+    status.mockResolvedValue({ code: 0, status: "CANCELLED", price: 1000, refId: "ps_1" })
     const res = await makeProvider().getWebhookActionAndData({
       data: { transId: "T1", refId: "ps_1" },
       rawData: "",
