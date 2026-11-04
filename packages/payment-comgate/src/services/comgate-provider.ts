@@ -122,7 +122,14 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
     }
     const transId = input.data?.transId as string
     const res = await this.client_.status(transId)
-    return { status: this.mapStatus(res.status), data: { ...input.data, status: res.status } }
+    // A bank transfer stays PENDING until the money arrives (days). Medusa creates the order
+    // (with reserved stock) for pending_authorization; the webhook completes the payment later.
+    // A card payment the customer abandoned is also PENDING, but must not become an order.
+    const transfer = res.status === "PENDING" && /^BANK/i.test(res.method ?? "")
+    return {
+      status: transfer ? PaymentSessionStatus.PENDING_AUTHORIZATION : this.mapStatus(res.status),
+      data: { ...input.data, status: res.status, ...(res.method ? { method: res.method } : {}) },
+    }
   }
 
   async capturePayment(input: {

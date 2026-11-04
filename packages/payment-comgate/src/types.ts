@@ -44,6 +44,8 @@ export interface ComgateStatusResult {
   curr: string
   refId: string
   test: boolean
+  // Payment method the customer chose, e.g. "BANK_CZ_RB" or "CARD_CZ_CSOB_2".
+  method?: string
 }
 
 // The data we persist on the Medusa payment session.

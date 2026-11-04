@@ -169,6 +169,17 @@ describe("getPaymentStatus maps Comgate→Medusa", () => {
 })
 
 describe("authorizePayment", () => {
+  it("a pending bank transfer is pending_authorization, so Medusa creates the order", async () => {
+    status.mockResolvedValue({ code: 0, status: "PENDING", method: "BANK_CZ_RB" })
+    const res = await makeProvider().authorizePayment({ data: { transId: "T1" } } as never)
+    expect(res.status).toBe("pending_authorization")
+    expect(res.data).toMatchObject({ status: "PENDING", method: "BANK_CZ_RB" })
+  })
+  it("a pending card payment stays pending (no order)", async () => {
+    status.mockResolvedValue({ code: 0, status: "PENDING", method: "CARD_CZ_CSOB_2" })
+    const res = await makeProvider().authorizePayment({ data: { transId: "T1" } } as never)
+    expect(res.status).toBe("pending")
+  })
   it("auto mode: PAID → captured (Medusa auto-captures)", async () => {
     status.mockResolvedValue({ code: 0, status: "PAID" })
     const res = await makeProvider({ ...options, capture: "automatic" }).authorizePayment({
