@@ -299,6 +299,15 @@ describe("getWebhookActionAndData", () => {
     expect(res.action).toBe(PaymentActions.SUCCESSFUL) // "captured"
     expect(res.data).toMatchObject({ session_id: "ps_1" })
   })
+  it("reports the amount in major units (Medusa's unit), not Comgate's haléře", async () => {
+    status.mockResolvedValue({ code: 0, status: "PAID", price: 269000, refId: "ps_1" })
+    const res = await makeProvider().getWebhookActionAndData({
+      data: { transId: "T1", status: "PAID" },
+      rawData: "",
+      headers: {},
+    } as never)
+    expect(res.data?.amount).toBe(2690)
+  })
   // Codex security sweep 2026-11-04: refId in the webhook body is unsigned. The session must come
   // from Comgate's authenticated status response, never from the payload.
   it("takes the session from the authenticated status, not the payload refId", async () => {

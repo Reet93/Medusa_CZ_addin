@@ -214,7 +214,8 @@ class ComgateProviderService extends AbstractPaymentProvider<ComgateOptions> {
     if (claimedRefId !== undefined && claimedRefId !== sessionId) {
       return { action: PaymentActions.NOT_SUPPORTED }
     }
-    const amount = res.price ?? 0
+    // Comgate reports haléře; Medusa works in koruny (capture amounts, order transactions).
+    const amount = (res.price ?? 0) / 100
     let action: PaymentActions
     switch (res.status) {
       case "PAID":
