@@ -1,8 +1,5 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import type PacketaProviderService from "../../../../../providers/packeta/service.js"
-
-// Same registered provider as the tracking route; it holds the server-side credentials.
-const PACKETA_PROVIDER_KEY = "fp_packeta_packeta"
+import { configuredPacketaProvider } from "../../provider.js"
 
 // The packet's label as a PDF, for the order widget's "print label" link. Admin routes require
 // an authenticated admin user.
@@ -12,7 +9,11 @@ export async function GET(req: MedusaRequest, res: MedusaResponse): Promise<void
     res.status(400).json({ message: "Invalid packet id" })
     return
   }
-  const provider = req.scope.resolve<PacketaProviderService>(PACKETA_PROVIDER_KEY)
+  const provider = configuredPacketaProvider(req)
+  if (!provider) {
+    res.status(503).json({ message: "Packeta is not configured" })
+    return
+  }
   const [label] = await provider.getShipmentDocuments({ packet_id: packetId })
   if (!label) {
     res.status(404).json({ message: "No label for this packet" })
